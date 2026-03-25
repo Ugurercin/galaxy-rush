@@ -187,9 +187,8 @@ class FormationManager {
             this.scene.spawnExplosion(s.x, s.y, s.elite ? 0xff9900 : 0x4488ff);
             const pts = s.elite ? 20 : 10;
             this.scene.score += pts;
-            this.scene.coins += pts;
+            this.scene.spawnCoinDrops(s.x, s.y, pts);
             this.scene.scoreTxt.setText('SCORE  ' + this.scene.score);
-            this.scene.coinTxt.setText('COINS  ' + this.scene.coins);
           }
         }
       });

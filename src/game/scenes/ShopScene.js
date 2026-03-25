@@ -180,6 +180,7 @@ class ShopScene extends Phaser.Scene {
   buyRestoreHP() {
     const cost = 50;
     if (this.coins < cost || this.playerHP >= this.maxHP) return;
+    soundManager.play('uiClick');
     this.coins    -= cost;
     this.playerHP  = Math.min(this.playerHP + 1, this.maxHP);
     this.refreshAll();
@@ -188,9 +189,10 @@ class ShopScene extends Phaser.Scene {
   buyMaxHP() {
     const cost = this.getMaxHPCost();
     if (this.coins < cost || this.maxHP >= 6) return;
+    soundManager.play('uiClick');
     this.coins -= cost;
     this.maxHP++;
-    this.playerHP = Math.min(this.playerHP + 1, this.maxHP); // also restore 1 on upgrade
+    this.playerHP = Math.min(this.playerHP + 1, this.maxHP);
     this.refreshAll();
   }
 
@@ -250,6 +252,7 @@ class ShopScene extends Phaser.Scene {
     if (this.coins < item.cost) return;
     const emptySlot = this.inventory.indexOf(null);
     if (emptySlot === -1) { this.showToast('Inventory full!'); return; }
+    soundManager.play('uiClick');
     this.coins -= item.cost;
     this.inventory[emptySlot] = item.type;
     this.refreshAll();
@@ -335,6 +338,7 @@ class ShopScene extends Phaser.Scene {
   }
 
   startNextWave() {
+    soundManager.play('uiClick');
     this.scene.start('GameScene', {
       wave:      this.wave + 1,
       score:     this.score,

@@ -68,6 +68,7 @@ class GameScene extends Phaser.Scene {
     this.bgGraphics      = this.add.graphics();
     this.formationGfx    = this.add.graphics();
     this.enemyGraphics   = this.add.graphics();
+    this.coinGraphics    = this.add.graphics();
     this.bulletGraphics  = this.add.graphics();
     this.eBulletGraphics = this.add.graphics();
     this.shipGraphics    = this.add.graphics();
@@ -79,6 +80,7 @@ class GameScene extends Phaser.Scene {
     this.enemyBullets = [];
     this.enemies      = [];
     this.particles    = [];
+    this.coinDrops = [];
 
     // ── HUD text ───────────────────────────────────────────
     this.scoreTxt = this.add.text(20, 20, 'SCORE  ' + this.score, {
@@ -169,6 +171,7 @@ class GameScene extends Phaser.Scene {
     const type = this.inventory[slotIndex];
     if (!type) return;
 
+    soundManager.play('uiClick');
     // Apply powerup effect
     this.applyPowerup(type);
 
@@ -219,18 +222,21 @@ class GameScene extends Phaser.Scene {
     this.enemies.forEach(e => {
       this.spawnExplosion(e.x, e.y, e.color);
       const pts = { drifter: 5, shooter: 10, chaser: 12, splitter: 15 };
-      const p = pts[e.type] || 5;
-      this.score += p; this.coins += p;
+      this.score += pts[e.type] || 5;
+      this.spawnCoinDrops(e.x, e.y, pts[e.type] || 5);
     });
     this.enemies = [];
     if (this.formation && this.formation.isActive()) {
       this.formation.ships.forEach(s => {
-        if (s.alive) { this.spawnExplosion(s.x, s.y, 0x4488ff); this.score += 10; this.coins += 10; }
+        if (s.alive) {
+          this.spawnExplosion(s.x, s.y, 0x4488ff);
+          this.score += 10;
+          this.spawnCoinDrops(s.x, s.y, 10);
+        }
         s.alive = false;
       });
     }
     this.scoreTxt.setText('SCORE  ' + this.score);
-    this.coinTxt.setText('COINS  ' + this.coins);
     const flash = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0xffffff)
       .setOrigin(0).setAlpha(0.5).setDepth(20);
     this.tweens.add({ targets: flash, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
@@ -281,6 +287,7 @@ class GameScene extends Phaser.Scene {
     this.enemies      = [];
     this.enemyBullets = [];
     this.bullets      = [];
+    this.coinDrops = [];
     this.enemiesLeft  = 0;
     this.waveClearLocked = false;
     this.formation.reset();
@@ -301,12 +308,19 @@ class GameScene extends Phaser.Scene {
     this.enemiesLeft = def.enemies;
     this.wavePhase   = 'spawning';
 
+    // Music — normal for waves 1-3, formation for 4-5
+    if (!def.formation) {
+      soundManager.switchMusic('music');
+    }
+
     if (def.formation === 'grid') {
       this.formation.spawnGrid(6, 3, 'drifter');
+      soundManager.switchMusic('formationMusic');
       this.showMessage('FORMATION INCOMING', 'Destroy them all!', 0x4488ff, 1800, null);
     }
     if (def.formation === 'vshape') {
       this.formation.spawnVShape('chaser');
+      soundManager.switchMusic('formationMusic');
       this.showMessage('FINAL WAVE', 'V-Formation attack!', 0xff9900, 1800, null);
     }
   }
@@ -329,11 +343,15 @@ class GameScene extends Phaser.Scene {
     this.coinTxt.setText('COINS  ' + this.coins);
 
     if (this.wave >= this.maxWaves) {
+      soundManager.switchMusic('bossMusic');
       this.showMessage('BOSS INCOMING', 'Prepare yourself...', 0xff3355, 2500, () => {
         this.beginWave(1); // Boss scene next
       });
       return;
     }
+
+    // Switch back to normal music between waves
+    soundManager.switchMusic('music');
 
     // Go to shop between waves
     this.showMessage(
@@ -406,6 +424,7 @@ class GameScene extends Phaser.Scene {
         this.bullets.push({ x: bx, y: by, speed: 10, vx: -3 });
         this.bullets.push({ x: bx, y: by, speed: 10, vx:  3 });
       }
+      soundManager.play('shoot');
       this.lastFired = time;
     }
 
@@ -449,6 +468,51 @@ class GameScene extends Phaser.Scene {
       return p.life > 0;
     });
 
+    // ── Update coins ───────────────────────────────────────
+    let collected = 0;
+    let collectX  = this.ship.x;
+    let collectY  = this.ship.y;
+
+    this.coinDrops = this.coinDrops.filter(c => {
+      // Initial burst velocity dies off, then gravity pulls down
+      c.vx *= 0.92;
+      c.vy  = c.vy * 0.92 + 0.18;
+      c.x  += c.vx;
+      c.y  += c.vy;
+      c.pulse = (c.pulse || 0) + 0.12;
+
+      // Coin magnet — pull toward ship
+      if (this.coinMagnet) {
+        const dx   = this.ship.x - c.x;
+        const dy   = this.ship.y - c.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 200) {
+          c.vx += (dx / dist) * 3.5;
+          c.vy += (dy / dist) * 3.5;
+        }
+      }
+
+      // Collection radius
+      const cdist = Phaser.Math.Distance.Between(c.x, c.y, this.ship.x, this.ship.y);
+      if (cdist < 22) {
+        collected++;
+        collectX = c.x;
+        collectY = c.y;
+        return false;
+      }
+
+      // Lost if off screen
+      return c.y < height + 20 && c.x > -20 && c.x < width + 20;
+    });
+
+    // Show collect text if any coins grabbed this frame
+    if (collected > 0) {
+      this.coins += collected * this.coinMultiplier;
+      this.coinTxt.setText('COINS  ' + this.coins);
+      this.showCoinCollectText(collectX, collectY - 20, collected * this.coinMultiplier);
+      soundManager.play('coinCollect');
+    }
+
     // ── Collisions ─────────────────────────────────────────
     this.checkBulletEnemyCollisions();
     this.bullets = this.formation.checkBulletCollisions(this.bullets);
@@ -467,6 +531,7 @@ class GameScene extends Phaser.Scene {
     this.drawBackground();
     this.formation.draw(this.formationGfx);
     this.drawEnemies();
+    this.drawCoins();
     this.drawEnemyBullets();
     this.drawBullets();
     this.drawShip();
@@ -582,6 +647,7 @@ class GameScene extends Phaser.Scene {
         if (Phaser.Math.Distance.Between(b.x, b.y, e.x, e.y) < e.size) {
           deadBullets.add(bi); e.hp--;
           if (e.hp <= 0) { deadEnemies.add(ei); this.onEnemyDeath(e); }
+          else { soundManager.play('hit'); }
         }
       });
     });
@@ -612,17 +678,58 @@ class GameScene extends Phaser.Scene {
   }
 
   onEnemyDeath(e) {
-    const pts = { drifter: 5, shooter: 10, chaser: 12, splitter: 15 };
+    const coinValues = { drifter: 5, shooter: 10, chaser: 12, splitter: 15 };
+    const scoreValues = { drifter: 5, shooter: 10, chaser: 12, splitter: 15 };
+
     this.spawnExplosion(e.x, e.y, e.color);
-    const p = pts[e.type] || 5;
-    this.score += p; this.coins += p * this.coinMultiplier;
+    soundManager.play('explosion');
+
+    // Score adds instantly
+    const pts = scoreValues[e.type] || 5;
+    this.score += pts;
     this.scoreTxt.setText('SCORE  ' + this.score);
-    this.coinTxt.setText('COINS  ' + this.coins);
+
+    // Coins drop physically — player must collect them
+    const coinCount = coinValues[e.type] || 5;
+    this.spawnCoinDrops(e.x, e.y, coinCount);
+
     if (e.type === 'splitter' && !e.hasSplit) {
       e.hasSplit = true;
       this.spawnDrifter(e.x - 12, e.y, Math.floor(e.size * 0.55), e.speed * 1.8);
       this.spawnDrifter(e.x + 12, e.y, Math.floor(e.size * 0.55), e.speed * 1.8);
     }
+  }
+
+  // Spawn N individual coin drops bursting from position
+  spawnCoinDrops(x, y, totalValue) {
+    // Split value across 3–5 coin pickups
+    const count = Phaser.Math.Between(3, 5);
+    const valueEach = Math.max(1, Math.floor(totalValue / count));
+
+    for (let i = 0; i < count; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const speed = Phaser.Math.FloatBetween(1.5, 4.0);
+      this.coinDrops.push({
+        x, y,
+        vx:    Math.cos(angle) * speed,
+        vy:    Math.sin(angle) * speed - 2, // initial upward bias
+        value: valueEach,
+        pulse: Phaser.Math.FloatBetween(0, Math.PI * 2),
+        size:  5,
+      });
+    }
+  }
+
+  showCoinCollectText(x, y, amount) {
+    const txt = this.add.text(x, y, `+${amount}`, {
+      fontSize: '13px', fontFamily: 'monospace',
+      color: '#ffeb3b', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(18);
+
+    this.tweens.add({
+      targets: txt, y: y - 40, alpha: 0, duration: 700,
+      ease: 'Power2', onComplete: () => txt.destroy(),
+    });
   }
 
   takeDamage() {
@@ -635,6 +742,7 @@ class GameScene extends Phaser.Scene {
     }
     if (this.ghostMode) return;
 
+    soundManager.play('playerHit');
     this.playerHP--;
     const hearts = '♥ '.repeat(Math.max(0, this.playerHP)).trim();
     const empty  = '♡ '.repeat(Math.max(0, this.maxHP - this.playerHP)).trim();
@@ -798,6 +906,32 @@ class GameScene extends Phaser.Scene {
     this.particles.forEach(p => {
       g.fillStyle(p.color, p.alpha);
       g.fillCircle(p.x, p.y, p.size);
+    });
+  }
+
+  drawCoins() {
+    const g = this.coinGraphics;
+    g.clear();
+
+    this.coinDrops.forEach(c => {
+      const pulse = 1 + Math.sin(c.pulse) * 0.15;
+      const r     = c.size * pulse;
+
+      // Outer glow ring
+      g.fillStyle(0xffeb3b, 0.18);
+      g.fillCircle(c.x, c.y, r + 4);
+
+      // Coin body
+      g.fillStyle(0xffcc00, 1);
+      g.fillCircle(c.x, c.y, r);
+
+      // Inner highlight
+      g.fillStyle(0xffee88, 0.9);
+      g.fillCircle(c.x - r * 0.25, c.y - r * 0.25, r * 0.4);
+
+      // Thin outline
+      g.lineStyle(0.8, 0xff9900, 0.8);
+      g.strokeCircle(c.x, c.y, r);
     });
   }
 }

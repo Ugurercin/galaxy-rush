@@ -24,8 +24,14 @@ class MenuScene extends Phaser.Scene {
       fontSize: '20px', fontFamily: 'monospace', color: '#00e5ff', fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    btnBg.on('pointerover',  () => btnBg.setFillStyle(0x0d2040));
-    btnBg.on('pointerout',   () => btnBg.setFillStyle(0x0a1628));
-    btnBg.on('pointerdown',  () => this.scene.start('GameScene'));
+    btnBg.on('pointerover', () => btnBg.setFillStyle(0x0d2040));
+    btnBg.on('pointerout',  () => btnBg.setFillStyle(0x0a1628));
+    btnBg.on('pointerdown', () => {
+      // Resume audio context on first user gesture — required by iOS/Android
+      soundManager.resume();
+      soundManager.play('uiClick');
+      soundManager.startMusic();
+      this.scene.start('GameScene');
+    });
   }
 }
