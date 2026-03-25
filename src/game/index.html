@@ -2,48 +2,99 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Galaxy Rush</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
-      width: 100%;
-      height: 100%;
-      background: #060a12;
-      overflow: hidden;
+      width: 100%; height: 100%;
+      overflow: hidden; background: #060a12;
       touch-action: none;
+      -webkit-user-select: none; user-select: none;
     }
-    canvas {
-      display: block;
-      margin: 0 auto;
+    canvas { display: block; touch-action: none; }
+    #error-overlay {
+      display: none; position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%; background: #060a12;
+      color: #ff3355; font-family: monospace; font-size: 11px;
+      padding: 20px; z-index: 9999; overflow-y: auto;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    #loading {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #00e5ff; font-family: monospace; font-size: 14px; text-align: center;
     }
   </style>
 </head>
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-  <script src="sounds/SoundManager.js"></script>
-  <script src="sounds/MusicTrack.js"></script>
-  <script src="sounds/FormationMusic.js"></script>
-  <script src="sounds/BossMusic.js"></script>
-  <script src="sounds/ShootSound.js"></script>
-  <script src="sounds/HitSound.js"></script>
-  <script src="sounds/ExplosionSound.js"></script>
-  <script src="sounds/PlayerHitSound.js"></script>
-  <script src="sounds/UIClickSound.js"></script>
-  <script src="sounds/CoinCollectSound.js"></script>
-  <script src="powerups/RapidFire.js"></script>
-  <script src="powerups/SpreadShot.js"></script>
-  <script src="powerups/Shield.js"></script>
-  <script src="powerups/ScreenBomb.js"></script>
-  <script src="powerups/CoinMagnet.js"></script>
-  <script src="powerups/GhostMode.js"></script>
-  <script src="powerups/PowerupManager.js"></script>
-  <script src="scenes/FormationManager.js"></script>
-  <script src="scenes/BootScene.js"></script>
-  <script src="scenes/MenuScene.js"></script>
-  <script src="scenes/GameScene.js"></script>
-  <script src="scenes/ShopScene.js"></script>
-  <script src="scenes/GameOverScene.js"></script>
-  <script src="main.js"></script>
+  <div id="error-overlay"></div>
+  <div id="loading">LOADING...</div>
+
+  <script>
+    // Show errors on screen
+    window.onerror = function(msg, src, line, col, err) {
+      document.getElementById('loading').style.display = 'none';
+      var el = document.getElementById('error-overlay');
+      el.style.display = 'block';
+      el.textContent = 'ERROR:\n' + msg + '\n\nFile: ' + src + '\nLine: ' + line + '\n\n' + (err ? err.stack : '');
+      return true;
+    };
+    window.addEventListener('unhandledrejection', function(e) {
+      document.getElementById('loading').style.display = 'none';
+      var el = document.getElementById('error-overlay');
+      el.style.display = 'block';
+      el.textContent = 'UNHANDLED REJECTION:\n' + (e.reason ? e.reason.stack || e.reason : e);
+    });
+
+    // Sequential script loader — waits for each script before loading next
+    var scripts = [
+      'vendor/phaser.min.js',
+      'sounds/SoundManager.js',
+      'sounds/MusicTrack.js',
+      'sounds/FormationMusic.js',
+      'sounds/BossMusic.js',
+      'sounds/ShootSound.js',
+      'sounds/HitSound.js',
+      'sounds/ExplosionSound.js',
+      'sounds/PlayerHitSound.js',
+      'sounds/UIClickSound.js',
+      'sounds/CoinCollectSound.js',
+      'powerups/RapidFire.js',
+      'powerups/SpreadShot.js',
+      'powerups/Shield.js',
+      'powerups/ScreenBomb.js',
+      'powerups/CoinMagnet.js',
+      'powerups/GhostMode.js',
+      'scenes/FormationManager.js',
+      'scenes/BootScene.js',
+      'scenes/MenuScene.js',
+      'scenes/GameScene.js',
+      'scenes/ShopScene.js',
+      'scenes/GameOverScene.js',
+      'main.js'
+    ];
+
+    var index = 0;
+
+    function loadNext() {
+      if (index >= scripts.length) {
+        // All scripts loaded — hide loading indicator
+        document.getElementById('loading').style.display = 'none';
+        return;
+      }
+      var src = scripts[index++];
+      var script = document.createElement('script');
+      script.src = src;
+      script.onload = loadNext;
+      script.onerror = function() {
+        var el = document.getElementById('error-overlay');
+        el.style.display = 'block';
+        el.textContent = 'ERROR: Failed to load script:\n' + src + '\n\nCheck the file exists in android assets.';
+      };
+      document.body.appendChild(script);
+    }
+
+    loadNext();
+  </script>
 </body>
 </html>

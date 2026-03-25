@@ -1,5 +1,6 @@
 const config = {
-  type: Phaser.AUTO,
+  // Force Canvas on Android — WebGL can silently fail in emulator WebView
+  type: Phaser.CANVAS,
   width: 390,
   height: 844,
   backgroundColor: '#060a12',
@@ -7,8 +8,18 @@ const config = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: 390,
+    height: 844,
+  },
+  render: {
+    antialias: false,      // better performance on mobile
+    pixelArt: false,
+    roundPixels: true,
   },
   scene: [BootScene, MenuScene, GameScene, ShopScene, GameOverScene],
 };
 
-const game = new Phaser.Game(config);
+// Small delay to let the WebView fully initialize before Phaser boots
+window.addEventListener('load', () => {
+  new Phaser.Game(config);
+});

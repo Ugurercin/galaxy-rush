@@ -1,7 +1,10 @@
 {
   "expo": {
     "name": "galaxy-rush",
-    "web": { "bundler": "metro" },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
     "slug": "galaxy-rush",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,11 +23,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.galaxyrush"
     },
     "plugins": [
       "expo-router",
