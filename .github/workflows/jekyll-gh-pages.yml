@@ -24,6 +24,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Resolve symlinks so public/game is a real folder on the runner
+          fetch-depth: 1
+
+      - name: Resolve symlink — copy src/game to a temp folder
+        run: |
+          cp -rL src/game /tmp/game-files
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -42,7 +49,10 @@ jobs:
       - name: Copy game files into dist
         run: |
           mkdir -p dist/game
-          cp -r src/game/. dist/game/
+          cp -r /tmp/game-files/. dist/game/
+
+      - name: List dist contents for verification
+        run: ls -la dist/ && ls -la dist/game/
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
