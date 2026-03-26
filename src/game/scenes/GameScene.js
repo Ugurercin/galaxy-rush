@@ -23,18 +23,13 @@ class GameScene extends Phaser.Scene {
     this.ghostMode      = false;
     this.coinMagnet     = false;
     this.coinMultiplier = 1;
-    this.activePowerup  = null;
-    this.powerupTimeLeft = 0;
+    this.activePowerups = {}; // map of type → { timeLeft, duration, removeFn }
 
     // ── Wave state ─────────────────────────────────────────
     this.wave            = this.startWave;
     this.maxWaves        = 5;
-    this.wavePhase       = 'idle';
-    this.enemiesLeft     = 0;
-    this.lastSpawned     = 0;
-    this.spawnInterval   = 1600;
+    this.currentWave     = null;
     this.waveClearLocked = false;
-    this.invincible      = false;
 
     // ── Managers ───────────────────────────────────────────
     this.formation = new FormationManager(this);
@@ -181,9 +176,6 @@ class GameScene extends Phaser.Scene {
   }
 
   applyPowerup(type) {
-    // Deactivate previous timed powerup
-    if (this.activePowerup) this.removePowerup(this.activePowerup);
-
     const powerupDefs = {
       rapidfire:  { duration: 8000,  apply: (s) => { s.fireRate = 180; },       remove: (s) => { s.fireRate = 500; } },
       spreadshot: { duration: 10000, apply: (s) => { s.spreadShot = true; },    remove: (s) => { s.spreadShot = false; } },
@@ -197,33 +189,45 @@ class GameScene extends Phaser.Scene {
     const def = powerupDefs[type];
     if (!def) return;
 
+    // If same powerup already active — refresh its timer instead of stacking
+    if (this.activePowerups[type]) {
+      this.activePowerups[type].timeLeft = def.duration;
+      this.showPickupText(type);
+      return;
+    }
+
+    // Apply effect
     def.apply(this);
     this.showPickupText(type);
 
-    if (def.duration > 0) {
-      this.activePowerup   = type;
-      this.powerupTimeLeft = def.duration;
-      this.powerupDuration = def.duration;
-      this.powerupRemoveFn = def.remove;
-      this.powerupBarTxt.setAlpha(1);
-    }
+    // Instant powerups — no timer needed
+    if (def.duration <= 0) return;
+
+    // Add to active powerup map — each runs independently
+    this.activePowerups[type] = {
+      timeLeft: def.duration,
+      duration: def.duration,
+      removeFn: def.remove,
+    };
   }
 
   removePowerup(type) {
-    if (this.powerupRemoveFn) this.powerupRemoveFn(this);
-    this.activePowerup   = null;
-    this.powerupTimeLeft = 0;
-    this.powerupBarGfx.clear();
-    this.powerupBarTxt.setAlpha(0);
-    this.powerupRemoveFn = null;
+    const entry = this.activePowerups[type];
+    if (!entry) return;
+    entry.removeFn(this);
+    delete this.activePowerups[type];
+  }
+
+  removeAllPowerups() {
+    Object.keys(this.activePowerups).forEach(type => this.removePowerup(type));
+    this.activePowerups = {};
   }
 
   triggerScreenBomb() {
     this.enemies.forEach(e => {
       this.spawnExplosion(e.x, e.y, e.color);
-      const pts = { drifter: 5, shooter: 10, chaser: 12, splitter: 15 };
-      this.score += pts[e.type] || 5;
-      this.spawnCoinDrops(e.x, e.y, pts[e.type] || 5);
+      this.score += e.scoreValue || 5;
+      this.spawnCoinDrops(e.x, e.y, e.coinValue || 5);
     });
     this.enemies = [];
     if (this.formation && this.formation.isActive()) {
@@ -284,76 +288,49 @@ class GameScene extends Phaser.Scene {
   // ══════════════════════════════════════════════════════════
 
   beginWave(waveNum) {
-    this.enemies      = [];
-    this.enemyBullets = [];
-    this.bullets      = [];
-    this.coinDrops = [];
-    this.enemiesLeft  = 0;
+    this.enemies         = [];
+    this.enemyBullets    = [];
+    this.bullets         = [];
+    this.coinDrops       = [];
     this.waveClearLocked = false;
+    this.removeAllPowerups();
     this.formation.reset();
 
     this.wave = waveNum;
     this.waveTxt.setText(`WAVE  ${waveNum} / ${this.maxWaves}`);
-    this.spawnInterval = Math.max(600, 1600 - (waveNum - 1) * 200);
 
-    const waveDefs = {
-      1: { enemies: 8,  formation: null },
-      2: { enemies: 12, formation: null },
-      3: { enemies: 16, formation: null },
-      4: { enemies: 6,  formation: 'grid' },
-      5: { enemies: 4,  formation: 'vshape' },
-    };
+    // Instantiate the correct wave class
+    const waveClasses = { 1: Wave1, 2: Wave2, 3: Wave3, 4: Wave4, 5: Wave5 };
+    const WaveClass   = waveClasses[waveNum] || Wave1;
+    this.currentWave  = new WaveClass(this);
 
-    const def = waveDefs[waveNum] || { enemies: 8, formation: null };
-    this.enemiesLeft = def.enemies;
-    this.wavePhase   = 'spawning';
-
-    // Music — normal for waves 1-3, formation for 4-5
-    if (!def.formation) {
-      soundManager.switchMusic('music');
-    }
-
-    if (def.formation === 'grid') {
-      this.formation.spawnGrid(6, 3, 'drifter');
-      soundManager.switchMusic('formationMusic');
-      this.showMessage('FORMATION INCOMING', 'Destroy them all!', 0x4488ff, 1800, null);
-    }
-    if (def.formation === 'vshape') {
-      this.formation.spawnVShape('chaser');
-      soundManager.switchMusic('formationMusic');
-      this.showMessage('FINAL WAVE', 'V-Formation attack!', 0xff9900, 1800, null);
-    }
+    // Switch music and run any wave-specific setup
+    soundManager.switchMusic(this.currentWave.musicTrack);
+    this.currentWave.onStart();
   }
 
   checkWaveClear() {
-    if (this.wavePhase !== 'spawning' && this.wavePhase !== 'waiting') return;
-    if (this.enemiesLeft > 0) return;
-    if (this.wavePhase === 'spawning') this.wavePhase = 'waiting';
-    if (this.enemies.length > 0) return;
-    if (this.formation.isActive()) return;
+    if (!this.currentWave) return;
     if (this.waveClearLocked) return;
+    if (!this.currentWave.done) return;
     this.waveClearLocked = true;
-    this.wavePhase = 'done';
     this.onWaveCleared();
   }
 
   onWaveCleared() {
-    const coinBonus = 20 + (this.wave - 1) * 10;
+    const coinBonus = this.currentWave.coinBonus;
     this.coins += coinBonus;
     this.coinTxt.setText('COINS  ' + this.coins);
 
     if (this.wave >= this.maxWaves) {
       soundManager.switchMusic('bossMusic');
       this.showMessage('BOSS INCOMING', 'Prepare yourself...', 0xff3355, 2500, () => {
-        this.beginWave(1); // Boss scene next
+        this.beginWave(1); // Boss scene coming soon
       });
       return;
     }
 
-    // Switch back to normal music between waves
     soundManager.switchMusic('music');
-
-    // Go to shop between waves
     this.showMessage(
       `WAVE ${this.wave} CLEARED`, `+${coinBonus} coins  —  Shop opening...`,
       0x00e5ff, 2200,
@@ -406,15 +383,13 @@ class GameScene extends Phaser.Scene {
     this.ship.x = Phaser.Math.Clamp(this.ship.x, this.ship.w / 2 + 10, width  - this.ship.w / 2 - 10);
     this.ship.y = Phaser.Math.Clamp(this.ship.y, this.ship.h / 2 + 60, height - this.ship.h / 2 - 80);
 
-    // ── Powerup timer tick ─────────────────────────────────
-    if (this.activePowerup && this.powerupTimeLeft > 0) {
-      this.powerupTimeLeft -= delta;
-      if (this.powerupTimeLeft <= 0) {
-        this.removePowerup(this.activePowerup);
-      } else {
-        this.drawPowerupBar();
-      }
-    }
+    // ── Powerup timers — all run independently ─────────────
+    Object.keys(this.activePowerups).forEach(type => {
+      const p = this.activePowerups[type];
+      p.timeLeft -= delta;
+      if (p.timeLeft <= 0) this.removePowerup(type);
+    });
+    this.drawPowerupBars();
 
     // ── Fire bullets ───────────────────────────────────────
     if (time > this.lastFired + this.fireRate) {
@@ -428,29 +403,16 @@ class GameScene extends Phaser.Scene {
       this.lastFired = time;
     }
 
-    // ── Spawn enemies ──────────────────────────────────────
-    if (this.wavePhase === 'spawning' && this.enemiesLeft > 0) {
-      if (time > this.lastSpawned + this.spawnInterval) {
-        this.spawnEnemy();
-        this.enemiesLeft--;
-        this.lastSpawned = time;
-      }
-    }
+    // ── Wave update — handles spawning and clear detection ─
+    if (this.currentWave) this.currentWave.update(delta);
 
     // ── Managers ───────────────────────────────────────────
     this.formation.update(time, delta);
 
     // ── Enemy AI ───────────────────────────────────────────
-    this.enemies.forEach(e => {
-      if (e.type === 'shooter') {
-        e.shootTimer += delta;
-        if (e.shootTimer > e.shootRate) { e.shootTimer = 0; this.fireEnemyBullet(e.x, e.y, this.ship.x, this.ship.y); }
-      }
-      if (e.type === 'chaser') {
-        const dx = this.ship.x - e.x;
-        e.x += Math.sign(dx) * Math.min(Math.abs(dx), e.chaseSpeed);
-      }
-    });
+    // ── Update enemies via class methods ───────────────────
+    this.enemies.forEach(e => e.update(delta));
+    this.enemies = this.enemies.filter(e => e.alive && !e.isOffScreen());
 
     // ── Update arrays ──────────────────────────────────────
     this.bullets = this.bullets.filter(b => {
@@ -461,7 +423,6 @@ class GameScene extends Phaser.Scene {
       b.x += b.vx; b.y += b.vy;
       return b.y < height + 20 && b.x > -20 && b.x < width + 20;
     });
-    this.enemies = this.enemies.filter(e => { e.y += e.speed; return e.y < height + 60; });
     this.particles = this.particles.filter(p => {
       p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
       p.alpha = p.life / p.maxLife;
@@ -539,18 +500,50 @@ class GameScene extends Phaser.Scene {
     this.drawInventoryBar();
   }
 
-  drawPowerupBar() {
+  drawPowerupBars() {
     const { width, height } = this.scale;
     const g = this.powerupBarGfx;
     g.clear();
-    const ratio  = Math.max(0, this.powerupTimeLeft / this.powerupDuration);
-    const barW   = 140, bx = width / 2 - barW / 2, by = height - 90;
-    const color  = this.getItemColor(this.activePowerup);
-    g.fillStyle(0x0a1628, 0.85); g.fillRect(bx - 4, by - 2, barW + 8, 10);
-    g.fillStyle(color, 0.25);    g.fillRect(bx, by, barW, 6);
-    g.fillStyle(color, 1);       g.fillRect(bx, by, barW * ratio, 6);
-    const secs = Math.ceil(this.powerupTimeLeft / 1000);
-    this.powerupBarTxt.setText(`${this.getItemLabel(this.activePowerup)}  ${secs}s`);
+
+    const active = Object.keys(this.activePowerups);
+    if (active.length === 0) {
+      this.powerupBarTxt.setAlpha(0);
+      return;
+    }
+
+    const barW  = 150;
+    const barH  = 6;
+    const gap   = 18;
+    const bx    = width / 2 - barW / 2;
+    // Stack bars above the inventory bar, one per active powerup
+    const startY = height - 90 - (active.length - 1) * gap;
+
+    // Build label text from all active
+    const labels = active.map(type => {
+      const p    = this.activePowerups[type];
+      const secs = Math.ceil(p.timeLeft / 1000);
+      return `${this.getItemLabel(type)} ${secs}s`;
+    });
+    this.powerupBarTxt.setText(labels.join('   ')).setAlpha(1);
+
+    active.forEach((type, i) => {
+      const p     = this.activePowerups[type];
+      const ratio = Math.max(0, p.timeLeft / p.duration);
+      const color = this.getItemColor(type);
+      const by    = startY + i * gap;
+
+      // Background
+      g.fillStyle(0x0a1628, 0.85);
+      g.fillRect(bx - 4, by - 2, barW + 8, barH + 4);
+
+      // Track
+      g.fillStyle(color, 0.2);
+      g.fillRect(bx, by, barW, barH);
+
+      // Fill
+      g.fillStyle(color, 1);
+      g.fillRect(bx, by, barW * ratio, barH);
+    });
   }
 
   drawInventoryBar() {
@@ -569,64 +562,9 @@ class GameScene extends Phaser.Scene {
   // SPAWNING
   // ══════════════════════════════════════════════════════════
 
-  spawnEnemy() {
-    const pool = ['drifter'];
-    if (this.wave >= 2) pool.push('shooter');
-    if (this.wave >= 3) pool.push('chaser');
-    if (this.wave >= 4) pool.push('splitter');
-    const weights = { drifter: 5, shooter: 2, chaser: 2, splitter: 1 };
-    const weighted = [];
-    pool.forEach(t => { for (let i = 0; i < weights[t]; i++) weighted.push(t); });
-    const type = weighted[Phaser.Math.Between(0, weighted.length - 1)];
-    switch (type) {
-      case 'drifter':  this.spawnDrifter();  break;
-      case 'shooter':  this.spawnShooter();  break;
-      case 'chaser':   this.spawnChaser();   break;
-      case 'splitter': this.spawnSplitter(); break;
-    }
-  }
-
+  // Used by Splitter onDeath for child enemies
   spawnDrifter(x, y, size, speed) {
-    const { width } = this.scale;
-    const s   = size  || Phaser.Math.Between(18, 26);
-    const spd = speed || Phaser.Math.FloatBetween(1.2, 2.2) + (this.wave - 1) * 0.25;
-    this.enemies.push({
-      type: 'drifter',
-      x: x !== undefined ? x : Phaser.Math.Between(s + 10, width - s - 10),
-      y: y !== undefined ? y : -s,
-      size: s, hp: 1, maxHp: 1, speed: spd, color: 0xff3355,
-    });
-  }
-
-  spawnShooter() {
-    const { width } = this.scale;
-    const size = Phaser.Math.Between(20, 28);
-    this.enemies.push({
-      type: 'shooter', x: Phaser.Math.Between(size + 20, width - size - 20),
-      y: size + 20, size, hp: 2, maxHp: 2, speed: 0,
-      color: 0xff9900, shootTimer: 0, shootRate: 2000 - (this.wave - 1) * 150,
-    });
-  }
-
-  spawnChaser() {
-    const { width } = this.scale;
-    const size = Phaser.Math.Between(16, 22);
-    this.enemies.push({
-      type: 'chaser', x: Phaser.Math.Between(size + 10, width - size - 10),
-      y: -size, size, hp: 2, maxHp: 2,
-      speed: Phaser.Math.FloatBetween(2.5, 4.0) + (this.wave - 1) * 0.3,
-      chaseSpeed: 3 + (this.wave - 1) * 0.5, color: 0xcc44ff,
-    });
-  }
-
-  spawnSplitter() {
-    const { width } = this.scale;
-    const size = Phaser.Math.Between(22, 30);
-    this.enemies.push({
-      type: 'splitter', x: Phaser.Math.Between(size + 10, width - size - 10),
-      y: -size, size, hp: 3, maxHp: 3,
-      speed: Phaser.Math.FloatBetween(1.0, 1.8), color: 0x00ccff, hasSplit: false,
-    });
+    this.enemies.push(Drifter.spawnAt(this, x, y, size, speed));
   }
 
   fireEnemyBullet(fromX, fromY, toX, toY) {
@@ -640,30 +578,31 @@ class GameScene extends Phaser.Scene {
   // ══════════════════════════════════════════════════════════
 
   checkBulletEnemyCollisions() {
-    const deadBullets = new Set(), deadEnemies = new Set();
+    const deadBullets = new Set();
     this.bullets.forEach((b, bi) => {
-      this.enemies.forEach((e, ei) => {
-        if (deadEnemies.has(ei)) return;
+      this.enemies.forEach(e => {
+        if (!e.alive) return;
         if (Phaser.Math.Distance.Between(b.x, b.y, e.x, e.y) < e.size) {
-          deadBullets.add(bi); e.hp--;
-          if (e.hp <= 0) { deadEnemies.add(ei); this.onEnemyDeath(e); }
-          else { soundManager.play('hit'); }
+          deadBullets.add(bi);
+          e.takeBulletHit(1);
         }
       });
     });
     this.bullets = this.bullets.filter((_, i) => !deadBullets.has(i));
-    this.enemies = this.enemies.filter((_, i) => !deadEnemies.has(i));
+    this.enemies = this.enemies.filter(e => e.alive);
   }
 
   checkPlayerEnemyCollisions() {
     if (this.invincible) return;
-    const dead = new Set();
-    this.enemies.forEach((e, ei) => {
+    this.enemies.forEach(e => {
+      if (!e.alive) return;
       if (Phaser.Math.Distance.Between(this.ship.x, this.ship.y, e.x, e.y) < e.size * 0.7 + 10) {
-        dead.add(ei); this.spawnExplosion(e.x, e.y, e.color); this.takeDamage();
+        e.alive = false;
+        this.spawnExplosion(e.x, e.y, e.color);
+        this.takeDamage();
       }
     });
-    this.enemies = this.enemies.filter((_, i) => !dead.has(i));
+    this.enemies = this.enemies.filter(e => e.alive);
   }
 
   checkEnemyBulletPlayerCollisions() {
@@ -675,29 +614,6 @@ class GameScene extends Phaser.Scene {
       }
     });
     this.enemyBullets = this.enemyBullets.filter((_, i) => !dead.has(i));
-  }
-
-  onEnemyDeath(e) {
-    const coinValues = { drifter: 5, shooter: 10, chaser: 12, splitter: 15 };
-    const scoreValues = { drifter: 5, shooter: 10, chaser: 12, splitter: 15 };
-
-    this.spawnExplosion(e.x, e.y, e.color);
-    soundManager.play('explosion');
-
-    // Score adds instantly
-    const pts = scoreValues[e.type] || 5;
-    this.score += pts;
-    this.scoreTxt.setText('SCORE  ' + this.score);
-
-    // Coins drop physically — player must collect them
-    const coinCount = coinValues[e.type] || 5;
-    this.spawnCoinDrops(e.x, e.y, coinCount);
-
-    if (e.type === 'splitter' && !e.hasSplit) {
-      e.hasSplit = true;
-      this.spawnDrifter(e.x - 12, e.y, Math.floor(e.size * 0.55), e.speed * 1.8);
-      this.spawnDrifter(e.x + 12, e.y, Math.floor(e.size * 0.55), e.speed * 1.8);
-    }
   }
 
   // Spawn N individual coin drops bursting from position
@@ -789,65 +705,8 @@ class GameScene extends Phaser.Scene {
   drawEnemies() {
     const g = this.enemyGraphics;
     g.clear();
-    this.enemies.forEach(e => {
-      switch (e.type) {
-        case 'drifter':  this.drawDrifter(g, e);  break;
-        case 'shooter':  this.drawShooter(g, e);  break;
-        case 'chaser':   this.drawChaser(g, e);   break;
-        case 'splitter': this.drawSplitter(g, e); break;
-      }
-      if (e.maxHp > 1) {
-        const bw = e.size * 2, bx = e.x - e.size, by = e.y + e.size + 4;
-        g.fillStyle(0x1a1a2e, 0.8); g.fillRect(bx, by, bw, 3);
-        g.fillStyle(e.color, 1);    g.fillRect(bx, by, bw * (e.hp / e.maxHp), 3);
-      }
-    });
-  }
-
-  drawDrifter(g, e) {
-    const s = e.size;
-    g.fillStyle(e.color, 0.9);
-    g.fillTriangle(e.x, e.y + s, e.x - s, e.y - s * 0.5, e.x + s, e.y - s * 0.5);
-    g.fillStyle(e.color, 0.55);
-    g.fillTriangle(e.x - s * 0.3, e.y + s * 0.2, e.x - s * 1.1, e.y + s * 0.8, e.x - s * 0.2, e.y + s * 0.9);
-    g.fillTriangle(e.x + s * 0.3, e.y + s * 0.2, e.x + s * 1.1, e.y + s * 0.8, e.x + s * 0.2, e.y + s * 0.9);
-    g.lineStyle(0.8, 0xff6680, 0.7);
-    g.strokeTriangle(e.x, e.y + s, e.x - s, e.y - s * 0.5, e.x + s, e.y - s * 0.5);
-    g.fillStyle(0xff8899, 0.8); g.fillCircle(e.x, e.y + s * 0.1, s * 0.22);
-  }
-
-  drawShooter(g, e) {
-    const s = e.size;
-    g.fillStyle(e.color, 0.85); g.fillRect(e.x - s * 0.7, e.y - s * 0.5, s * 1.4, s);
-    g.fillStyle(0xffaa00, 1);   g.fillRect(e.x - 3, e.y + s * 0.4, 6, s * 0.7);
-    g.lineStyle(1, 0xffcc44, 0.8); g.strokeRect(e.x - s * 0.7, e.y - s * 0.5, s * 1.4, s);
-    g.fillStyle(0xffdd88, 0.9); g.fillCircle(e.x, e.y, s * 0.25);
-  }
-
-  drawChaser(g, e) {
-    const s = e.size;
-    g.fillStyle(e.color, 0.9);
-    g.fillTriangle(e.x, e.y + s, e.x - s, e.y - s * 0.6, e.x + s, e.y - s * 0.6);
-    g.lineStyle(0.8, 0xdd88ff, 0.5);
-    g.lineBetween(e.x - s * 0.3, e.y - s * 0.6, e.x - s * 0.3, e.y - s * 1.1);
-    g.lineBetween(e.x + s * 0.3, e.y - s * 0.6, e.x + s * 0.3, e.y - s * 1.1);
-    g.lineBetween(e.x, e.y - s * 0.6, e.x, e.y - s * 1.2);
-    g.lineStyle(1, 0xee88ff, 0.8);
-    g.strokeTriangle(e.x, e.y + s, e.x - s, e.y - s * 0.6, e.x + s, e.y - s * 0.6);
-    g.fillStyle(0xee88ff, 0.9); g.fillCircle(e.x, e.y, s * 0.2);
-  }
-
-  drawSplitter(g, e) {
-    const s = e.size;
-    g.fillStyle(e.color, 0.85);
-    g.fillTriangle(e.x, e.y - s, e.x - s, e.y, e.x + s, e.y);
-    g.fillTriangle(e.x, e.y + s, e.x - s, e.y, e.x + s, e.y);
-    g.fillStyle(0x88eeff, 0.6);
-    g.fillTriangle(e.x, e.y - s * 0.5, e.x - s * 0.5, e.y, e.x + s * 0.5, e.y);
-    g.lineStyle(1, 0x44ddff, 0.9);
-    g.strokeTriangle(e.x, e.y - s, e.x - s, e.y, e.x + s, e.y);
-    g.strokeTriangle(e.x, e.y + s, e.x - s, e.y, e.x + s, e.y);
-    g.lineStyle(0.5, 0xffffff, 0.3); g.lineBetween(e.x - s, e.y, e.x + s, e.y);
+    // Each enemy class owns its own draw logic
+    this.enemies.forEach(e => e.draw(g));
   }
 
   drawEnemyBullets() {

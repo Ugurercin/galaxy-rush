@@ -46,7 +46,7 @@
       el.textContent = 'UNHANDLED REJECTION:\n' + (e.reason ? e.reason.stack || e.reason : e);
     });
 
-    // Sequential script loader — waits for each script before loading next.
+    // Sequential script loader — waits for each script before loading next
     var scripts = [
       'vendor/phaser.min.js',
       'sounds/SoundManager.js',
@@ -66,6 +66,21 @@
       'powerups/CoinMagnet.js',
       'powerups/GhostMode.js',
       'scenes/FormationManager.js',
+      'enemies/renderers/DrifterRenderer.js',
+      'enemies/renderers/ShooterRenderer.js',
+      'enemies/renderers/ChaserRenderer.js',
+      'enemies/renderers/SplitterRenderer.js',
+      'enemies/EnemyBase.js',
+      'enemies/Drifter.js',
+      'enemies/Shooter.js',
+      'enemies/Chaser.js',
+      'enemies/Splitter.js',
+      'waves/WaveBase.js',
+      'waves/Wave1.js',
+      'waves/Wave2.js',
+      'waves/Wave3.js',
+      'waves/Wave4.js',
+      'waves/Wave5.js',
       'scenes/BootScene.js',
       'scenes/MenuScene.js',
       'scenes/GameScene.js',

@@ -1,91 +1,99 @@
-// Coin collect sound — bright chime with rising pitch combo
-// Each consecutive collection within the combo window
-// raises the pitch, giving a "filling up" feel
-// Perfect for CoinMagnet rapid collection chains
-//
-// ── Tune these ─────────────────────────────────────────────
-// baseFreq    — starting pitch of the chime
-// maxFreq     — pitch ceiling (combo won't go higher)
-// freqStep    — how much pitch rises per combo hit
-// comboWindow — ms gap allowed between hits to keep combo alive
-// duration    — length of each chime
-// volume      — 0.0 to 1.0
-
 const CoinCollectSound = {
-  baseFreq:    660,    // Hz — bright C note
-  maxFreq:     1760,   // Hz — two octaves up max
-  freqStep:    40,     // Hz rise per consecutive collect
-  comboWindow: 280,    // ms — gap before combo resets
-  duration:    0.09,   // seconds per chime
-  volume:      0.28,
+  baseFreq: 720,
+  maxFreq: 1800,
+  comboWindow: 280,
+  duration: 0.08,
+  volume: 0.16,
 
-  // ── Internal state ─────────────────────────────────────
-  _currentFreq:  660,
+  _currentFreq: 720,
   _lastPlayedAt: 0,
-  _comboCount:   0,
+  _comboCount: 0,
 
   play(ctx, bus) {
-    const now    = ctx.currentTime;
-    const nowMs  = performance.now();
+    const now = ctx.currentTime;
+    const nowMs = performance.now();
 
-    // Check if combo should reset
     if (nowMs - this._lastPlayedAt > this.comboWindow) {
       this._currentFreq = this.baseFreq;
-      this._comboCount  = 0;
+      this._comboCount = 0;
     }
 
     this._lastPlayedAt = nowMs;
     this._comboCount++;
 
-    const freq = Math.min(this._currentFreq, this.maxFreq);
-    const dur  = this.duration;
+    // ratio-based rise feels more musical than +40 Hz each time
+    const freq = Math.min(
+      this.baseFreq * Math.pow(1.06, this._comboCount - 1),
+      this.maxFreq
+    );
 
-    // ── Main chime oscillator ─────────────────────────────
-    const osc  = ctx.createOscillator();
-    osc.type   = 'sine';
-    osc.frequency.setValueAtTime(freq, now);
-    // Slight pitch lift at the end — coin "ting" effect
-    osc.frequency.linearRampToValueAtTime(freq * 1.04, now + dur * 0.3);
-    osc.frequency.linearRampToValueAtTime(freq * 0.98, now + dur);
+    const dur = this.duration;
 
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(this.volume, now + 0.006);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    // main body
+    const osc1 = ctx.createOscillator();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(freq, now);
+    osc1.frequency.linearRampToValueAtTime(freq * 1.06, now + 0.012);
+    osc1.frequency.exponentialRampToValueAtTime(freq * 0.96, now + dur);
 
-    // ── Harmonic overtone for sparkle ─────────────────────
-    const osc2  = ctx.createOscillator();
-    osc2.type   = 'triangle';
-    osc2.frequency.setValueAtTime(freq * 2, now);
+    const gain1 = ctx.createGain();
+    gain1.gain.setValueAtTime(0.0001, now);
+    gain1.gain.linearRampToValueAtTime(this.volume, now + 0.004);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+    // sparkle overtone
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(freq * 2.5, now);
 
     const gain2 = ctx.createGain();
-    gain2.gain.setValueAtTime(0, now);
-    gain2.gain.linearRampToValueAtTime(this.volume * 0.35, now + 0.005);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.6);
+    gain2.gain.setValueAtTime(0.0001, now);
+    gain2.gain.linearRampToValueAtTime(this.volume * 0.28, now + 0.003);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.45);
 
-    // ── Short reverb tail via delay ───────────────────────
-    const delay       = ctx.createDelay();
-    delay.delayTime.value = 0.04;
+    // metallic click layer
+    const osc3 = ctx.createOscillator();
+    osc3.type = 'square';
+    osc3.frequency.setValueAtTime(freq * 4, now);
 
-    const delayGain   = ctx.createGain();
-    delayGain.gain.value = 0.18;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 3200;
+    band.Q.value = 5;
 
-    osc.connect(gain);
-    gain.connect(bus);
-    gain.connect(delay);
+    const gain3 = ctx.createGain();
+    gain3.gain.setValueAtTime(0.0001, now);
+    gain3.gain.linearRampToValueAtTime(this.volume * 0.12, now + 0.002);
+    gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+
+    // tiny echo tail
+    const delay = ctx.createDelay();
+    delay.delayTime.value = 0.045;
+
+    const delayGain = ctx.createGain();
+    delayGain.gain.value = 0.12;
+
+    osc1.connect(gain1);
+    gain1.connect(bus);
+    gain1.connect(delay);
     delay.connect(delayGain);
     delayGain.connect(bus);
 
     osc2.connect(gain2);
     gain2.connect(bus);
 
-    osc.start(now);  osc.stop(now + dur + 0.05);
-    osc2.start(now); osc2.stop(now + dur * 0.6);
+    osc3.connect(band);
+    band.connect(gain3);
+    gain3.connect(bus);
 
-    // Advance pitch for next hit in combo
-    this._currentFreq = Math.min(
-      this._currentFreq + this.freqStep,
-      this.maxFreq
-    );
+    osc1.start(now);
+    osc2.start(now);
+    osc3.start(now);
+
+    osc1.stop(now + dur + 0.03);
+    osc2.stop(now + dur * 0.45);
+    osc3.stop(now + 0.025);
+
+    this._currentFreq = freq;
   },
 };
