@@ -693,104 +693,37 @@ class GameScene extends Phaser.Scene {
 
   drawBackground() {
     const { width, height } = this.scale;
-    const g = this.bgGraphics;
-    g.clear();
-    g.fillStyle(0x060a12, 1); g.fillRect(0, 0, width, height);
-    this.stars.forEach(s => {
-      g.fillStyle(0xffffff, s.alpha);
-      g.fillRect(s.x, s.y, s.size, s.size);
-    });
+    BackgroundRenderer.draw(this.bgGraphics, this.stars, width, height);
   }
 
   drawEnemies() {
     const g = this.enemyGraphics;
     g.clear();
-    // Each enemy class owns its own draw logic
     this.enemies.forEach(e => e.draw(g));
   }
 
   drawEnemyBullets() {
-    const g = this.eBulletGraphics;
-    g.clear();
-    this.enemyBullets.forEach(b => {
-      g.fillStyle(0xff6600, 0.3); g.fillCircle(b.x, b.y, 6);
-      g.fillStyle(0xff9900, 1);   g.fillCircle(b.x, b.y, 3.5);
-      g.fillStyle(0xffcc44, 0.9); g.fillCircle(b.x, b.y, 1.5);
-    });
+    BulletRenderer.drawEnemyBullets(this.eBulletGraphics, this.enemyBullets);
   }
 
   drawBullets() {
-    const g = this.bulletGraphics;
-    g.clear();
-    this.bullets.forEach(b => {
-      g.fillStyle(0xffe066, 0.25); g.fillRect(b.x - 3, b.y - 6, 6, 16);
-      g.fillStyle(0xffe066, 1);    g.fillRect(b.x - 2, b.y - 5, 4, 14);
-      g.fillStyle(0xffffff, 0.9);  g.fillRect(b.x - 1, b.y - 5, 2, 4);
-    });
+    BulletRenderer.drawPlayerBullets(this.bulletGraphics, this.bullets);
   }
 
   drawShip() {
     const g = this.shipGraphics;
     g.clear();
-    if (this.ghostMode && Math.floor(this.time.now / 80) % 2 === 0) {
-      g.fillStyle(0xce93d8, 0.3); g.fillCircle(this.ship.x, this.ship.y, 28);
-    }
-    if (this.hasShield) {
-      g.lineStyle(1.5, 0x69ff47, 0.7 + Math.sin(this.time.now / 200) * 0.3);
-      g.strokeCircle(this.ship.x, this.ship.y, 26);
-    }
-    if (!this.ghostMode && this.invincible && Math.floor(this.time.now / 120) % 2 === 0) return;
-    const { x, y, w, h } = this.ship;
-    g.fillStyle(0x00e5ff, 0.12);
-    g.fillTriangle(x, y + h * 0.5, x - w * 0.3, y + h * 1.1, x + w * 0.3, y + h * 1.1);
-    g.fillStyle(0x00e5ff, 0.25);
-    g.fillTriangle(x, y + h * 0.5, x - w * 0.18, y + h * 0.95, x + w * 0.18, y + h * 0.95);
-    g.fillStyle(0x0d2a4a, 1);
-    g.fillTriangle(x, y - h * 0.5, x - w * 0.5, y + h * 0.5, x + w * 0.5, y + h * 0.5);
-    g.fillStyle(0x0a2040, 1);
-    g.fillTriangle(x - w * 0.2, y + h * 0.1, x - w * 0.7, y + h * 0.55, x - w * 0.1, y + h * 0.5);
-    g.fillTriangle(x + w * 0.2, y + h * 0.1, x + w * 0.7, y + h * 0.55, x + w * 0.1, y + h * 0.5);
-    g.lineStyle(1, 0x00e5ff, 0.8);
-    g.strokeTriangle(x, y - h * 0.5, x - w * 0.5, y + h * 0.5, x + w * 0.5, y + h * 0.5);
-    g.fillStyle(0x00e5ff, 0.6);
-    g.fillTriangle(x, y - h * 0.25, x - w * 0.15, y + h * 0.1, x + w * 0.15, y + h * 0.1);
-    g.fillStyle(0x00e5ff, 0.9);
-    g.fillCircle(x - w * 0.18, y + h * 0.45, 2.5);
-    g.fillCircle(x + w * 0.18, y + h * 0.45, 2.5);
+    if (this.ghostMode)  PlayerShipRenderer.drawGhost(g, this.ship, this);
+    if (this.hasShield)  PlayerShipRenderer.drawShield(g, this.ship, this);
+    if (PlayerShipRenderer.shouldSkipDraw(this.ship, this)) return;
+    PlayerShipRenderer.draw(g, this.ship, this);
   }
 
   drawParticles() {
-    const g = this.fxGraphics;
-    g.clear();
-    this.particles.forEach(p => {
-      g.fillStyle(p.color, p.alpha);
-      g.fillCircle(p.x, p.y, p.size);
-    });
+    ParticleRenderer.draw(this.fxGraphics, this.particles);
   }
 
   drawCoins() {
-    const g = this.coinGraphics;
-    g.clear();
-
-    this.coinDrops.forEach(c => {
-      const pulse = 1 + Math.sin(c.pulse) * 0.15;
-      const r     = c.size * pulse;
-
-      // Outer glow ring
-      g.fillStyle(0xffeb3b, 0.18);
-      g.fillCircle(c.x, c.y, r + 4);
-
-      // Coin body
-      g.fillStyle(0xffcc00, 1);
-      g.fillCircle(c.x, c.y, r);
-
-      // Inner highlight
-      g.fillStyle(0xffee88, 0.9);
-      g.fillCircle(c.x - r * 0.25, c.y - r * 0.25, r * 0.4);
-
-      // Thin outline
-      g.lineStyle(0.8, 0xff9900, 0.8);
-      g.strokeCircle(c.x, c.y, r);
-    });
+    CoinRenderer.draw(this.coinGraphics, this.coinDrops);
   }
 }
