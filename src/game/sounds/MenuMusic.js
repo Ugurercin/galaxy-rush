@@ -1,10 +1,12 @@
 // MenuMusic.js
-// Soft ambient menu background track
+// Soft ambient menu background track with safe cleanup
 
 const MenuMusic = {
   start(ctx, bus) {
     const now = ctx.currentTime;
 
+    this._ctx = ctx;
+    this._bus = bus;
     this._nodes = [];
     this._timers = [];
     this._running = true;
@@ -14,12 +16,10 @@ const MenuMusic = {
     master.connect(bus);
     this.master = master;
 
-    // fade in
     master.gain.cancelScheduledValues(now);
     master.gain.setValueAtTime(0.0001, now);
     master.gain.exponentialRampToValueAtTime(0.16, now + 1.8);
 
-    // soft drone pad
     const makePad = (freq, type, gainValue) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -47,7 +47,6 @@ const MenuMusic = {
     makePad(165, 'triangle', 0.035);
     makePad(220, 'sine', 0.025);
 
-    // gentle pulse notes
     const pulse = () => {
       if (!this._running) return;
 
@@ -83,7 +82,6 @@ const MenuMusic = {
       this._timers.push(id);
     };
 
-    // tiny sparkle arps
     const sparkle = () => {
       if (!this._running) return;
 
@@ -120,33 +118,73 @@ const MenuMusic = {
   },
 
   stop(ctx) {
-    if (!this._running) return;
-    this._running = false;
-
-    const now = ctx.currentTime;
-
-    if (this.master) {
-      this.master.gain.cancelScheduledValues(now);
-      this.master.gain.setValueAtTime(Math.max(this.master.gain.value, 0.0001), now);
-      this.master.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+    if (!this._running && !this.master && (!this._nodes || this._nodes.length === 0)) {
+      return;
     }
 
-    this._timers.forEach(id => clearTimeout(id));
-    this._timers = [];
+    this._running = false;
 
-    setTimeout(() => {
+    const audioCtx = ctx || this._ctx;
+
+    if (this._timers) {
+      this._timers.forEach(id => clearTimeout(id));
+      this._timers = [];
+    }
+
+    if (!audioCtx) {
       if (this._nodes) {
         this._nodes.forEach(node => {
           try {
-            if (node.stop) node.stop();
+            if (typeof node.stop === 'function') node.stop();
           } catch (e) {}
           try {
             node.disconnect();
           } catch (e) {}
         });
       }
+
       this._nodes = [];
       this.master = null;
+      this._ctx = null;
+      this._bus = null;
+      return;
+    }
+
+    const now = audioCtx.currentTime;
+
+    if (this.master && this.master.gain) {
+      try {
+        this.master.gain.cancelScheduledValues(now);
+        this.master.gain.setValueAtTime(
+          Math.max(this.master.gain.value || 0.0001, 0.0001),
+          now
+        );
+        this.master.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+      } catch (e) {}
+    }
+
+    setTimeout(() => {
+      if (this._nodes) {
+        this._nodes.forEach(node => {
+          try {
+            if (typeof node.stop === 'function') node.stop();
+          } catch (e) {}
+          try {
+            node.disconnect();
+          } catch (e) {}
+        });
+      }
+
+      if (this.master) {
+        try {
+          this.master.disconnect();
+        } catch (e) {}
+      }
+
+      this._nodes = [];
+      this.master = null;
+      this._ctx = null;
+      this._bus = null;
     }, 650);
   },
 };
