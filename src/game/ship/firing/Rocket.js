@@ -7,7 +7,7 @@ class Rocket extends FiringBase {
     this.color        = '#ff9900';
     this.fireRateMod  = 3.5;
     this.bulletSpeed  = 5;
-    this.splashRadius = 60;
+    this.splashRadius = 76;
     this.splashDamage = 3;
     this._lastFired   = 0;
   }
@@ -24,7 +24,7 @@ class Rocket extends FiringBase {
       splashRadius: this.splashRadius,
       splashDamage: this.splashDamage,
     });
-    soundManager.play('shoot');
+    soundManager.play('shootRocket');
   }
 
   draw(g) { g.clear(); }

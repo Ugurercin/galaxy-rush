@@ -170,32 +170,35 @@ class FormationManager {
     });
   }
 
-  checkBulletCollisions(bullets) {
-    if (!this.active) return bullets;
+ checkBulletCollisions(bullets) {
+  if (!this.active) return bullets;
 
-    const deadBullets = new Set();
+  const deadBullets = new Set();
 
-    bullets.forEach((b, bi) => {
-      this.ships.forEach(s => {
-        if (!s.alive) return;
-        const dist = Phaser.Math.Distance.Between(b.x, b.y, s.x, s.y);
-        if (dist < s.w / 2 + 4) {
-          deadBullets.add(bi);
+  bullets.forEach((b, bi) => {
+    this.ships.forEach(s => {
+      if (!s.alive) return;
+      if (deadBullets.has(bi)) return;
+
+      const dist = Phaser.Math.Distance.Between(b.x, b.y, s.x, s.y);
+
+      if (dist < s.w / 2 + 4) {
+        deadBullets.add(bi);
+
+        if (b.isRocket) {
+          this.applyRocketSplash(b.x, b.y, b.splashRadius, b.splashDamage);
+        } else {
           s.hp--;
           if (s.hp <= 0) {
-            s.alive = false;
-            this.scene.spawnExplosion(s.x, s.y, s.elite ? 0xff9900 : 0x4488ff);
-            const pts = s.elite ? 20 : 10;
-            this.scene.score += pts;
-            this.scene.spawnCoinDrops(s.x, s.y, pts);
-            this.scene.scoreTxt.setText('SCORE  ' + this.scene.score);
+            this.killShip(s);
           }
         }
-      });
+      }
     });
+  });
 
-    return bullets.filter((_, i) => !deadBullets.has(i));
-  }
+  return bullets.filter((_, i) => !deadBullets.has(i));
+}
 
   checkPlayerCollision(ship, onHit) {
     if (!this.active) return;
@@ -242,4 +245,32 @@ class FormationManager {
       }
     });
   }
+  killShip(s) {
+  s.alive = false;
+  this.scene.spawnExplosion(s.x, s.y, s.elite ? 0xff9900 : 0x4488ff);
+
+  const pts = s.elite ? 20 : 10;
+  this.scene.score += pts;
+  this.scene.spawnCoinDrops(s.x, s.y, pts);
+  this.scene.scoreTxt.setText('SCORE  ' + this.scene.score);
+}
+
+applyRocketSplash(x, y, radius, damage) {
+  this.scene.spawnExplosion(x, y, 0xff9900);
+  this.scene.spawnExplosion(x, y, 0xff6600);
+
+  this.ships.forEach(s => {
+    if (!s.alive) return;
+
+    const dist = Phaser.Math.Distance.Between(x, y, s.x, s.y);
+
+    // slightly forgiving hit test so it feels stronger on formations
+    if (dist < radius + Math.max(s.w, s.h) * 0.35) {
+      s.hp -= damage;
+      if (s.hp <= 0) {
+        this.killShip(s);
+      }
+    }
+  });
+}
 }

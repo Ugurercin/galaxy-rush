@@ -14,6 +14,7 @@ class PowerupManager {
       screenbomb: ScreenBomb,
       coinmagnet: CoinMagnet,
       ghostmode:  GhostMode,
+      phoenix:    PhoenixModule,
     };
 
     // Drop weights — ghostmode is rare
@@ -24,6 +25,7 @@ class PowerupManager {
       'screenbomb',
       'coinmagnet', 'coinmagnet',
       'ghostmode',
+      'phoenix',
     ];
 
     // HUD bar at bottom center

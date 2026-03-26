@@ -19,6 +19,13 @@ class WaveBase {
     // Higher weight = appears more frequently
     this.weights = {
       drifter: 8,
+      shooter: 0,
+      chaser: 0,
+      splitter: 0,
+      zigzag: 0,
+      dasher: 0,
+      bomber: 0,
+      tank: 0,
     };
   }
 
@@ -50,34 +57,83 @@ class WaveBase {
 
   // Pick and spawn a random enemy based on weights
   _spawnNext() {
-    const weighted = [];
-    Object.entries(this.weights).forEach(([type, w]) => {
-      for (let i = 0; i < w; i++) weighted.push(type);
-    });
-    const type = weighted[Phaser.Math.Between(0, weighted.length - 1)];
-    this._spawnType(type);
+    const entries = Object.entries(this.weights).filter(([, weight]) => weight > 0);
+    if (entries.length === 0) return;
+
+    const totalWeight = entries.reduce((sum, [, weight]) => sum + weight, 0);
+    let roll = Phaser.Math.FloatBetween(0, totalWeight);
+
+    for (const [type, weight] of entries) {
+      roll -= weight;
+      if (roll <= 0) {
+        this._spawnType(type);
+        return;
+      }
+    }
+
+    // Fallback
+    this._spawnType(entries[0][0]);
   }
 
   _spawnType(type) {
-    const wave = this.scene.wave;
-    switch (type) {
-      case 'drifter':  this.scene.enemies.push(new Drifter(this.scene, wave));  break;
-      case 'shooter':  this.scene.enemies.push(new Shooter(this.scene, wave));  break;
-      case 'chaser':   this.scene.enemies.push(new Chaser(this.scene, wave));   break;
-      case 'splitter': this.scene.enemies.push(new Splitter(this.scene, wave)); break;
-    }
+  const wave = this.scene.wave;
+
+  switch (type) {
+    case 'drifter':
+      this.scene.enemies.push(new Drifter(this.scene, wave));
+      break;
+    case 'shooter':
+      this.scene.enemies.push(new Shooter(this.scene, wave));
+      break;
+    case 'chaser':
+      this.scene.enemies.push(new Chaser(this.scene, wave));
+      break;
+    case 'splitter':
+      this.scene.enemies.push(new Splitter(this.scene, wave));
+      break;
+    case 'zigzag':
+      this.scene.enemies.push(new ZigZag(this.scene, wave));
+      break;
+    case 'bomber':
+      this.scene.enemies.push(new Bomber(this.scene, wave));
+      break;
+    case 'dasher':
+      this.scene.enemies.push(new Dasher(this.scene, wave));
+      break;
+    case 'tank':
+      this.scene.enemies.push(new Tank(this.scene, wave));
+      break;
+    default:
+      console.warn('Unknown enemy type:', type);
+      this.scene.enemies.push(new Drifter(this.scene, wave));
+      break;
   }
+}
 
   // Spawn a formation — called from subclass onStart()
   spawnFormation(type) {
-    if (type === 'grid')   {
+    if (type === 'grid') {
       this.scene.formation.spawnGrid(6, 3, 'drifter');
       this.scene.showMessage('FORMATION INCOMING', 'Destroy them all!', 0x4488ff, 1800, null);
       soundManager.switchMusic('formationMusic');
     }
+
     if (type === 'vshape') {
       this.scene.formation.spawnVShape('chaser');
       this.scene.showMessage('FINAL WAVE', 'V-Formation attack!', 0xff9900, 1800, null);
+      soundManager.switchMusic('formationMusic');
+    }
+
+    // Optional new formations
+    if (type === 'zigzagLine') {
+      this.scene.formation.spawnGrid(5, 2, 'zigzag');
+      this.scene.showMessage('SWARM INCOMING', 'Unstable movement pattern!', 0x66ff88, 1800, null);
+      soundManager.switchMusic('formationMusic');
+    }
+
+    if (type === 'bomberLine') {
+      this.scene.formation.spawnGrid(4, 2, 'bomber');
+      this.scene.showMessage('BOMBER SQUAD', 'Incoming fire!', 0xff6644, 1800, null);
       soundManager.switchMusic('formationMusic');
     }
   }

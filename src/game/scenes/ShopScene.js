@@ -4,17 +4,21 @@ class ShopScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.wave          = data.wave          || 1;
-    this.maxWaves      = data.maxWaves      || 5;
-    this.score         = data.score         || 0;
-    this.coins         = data.coins         || 0;
-    this.playerHP      = data.playerHP      || 3;
-    this.maxHP         = data.maxHP         || 3;
-    this.inventory     = data.inventory     || [null, null, null];
-    this.fireRateLevel = data.fireRateLevel || 0;
-    this.unlockedModes = data.unlockedModes || ['single'];
-    this.activeModeKey = data.activeModeKey || 'single';
-    this.activeTab     = data.activeTab     || 0;
+    this.wave              = data.wave || 1;
+    this.maxWaves          = data.maxWaves || 5;
+    this.score             = data.score || 0;
+    this.coins             = data.coins || 0;
+    this.playerHP          = data.playerHP || 3;
+    this.maxHP             = data.maxHP || 3;
+    this.inventory         = data.inventory || [null, null, null];
+    this.fireRateLevel     = data.fireRateLevel || 0;
+    this.unlockedModes     = data.unlockedModes || ['single'];
+    this.activeModeKey     = data.activeModeKey || 'single';
+    this.activeTab         = data.activeTab || 0;
+
+    // Phoenix persistence
+    this.hasPhoenixModule   = data.hasPhoenixModule || false;
+    this.phoenixBoughtCount = data.phoenixBoughtCount || 0;
   }
 
   create() {
@@ -35,13 +39,23 @@ class ShopScene extends Phaser.Scene {
     this.contentBottom = height - this.BOTTOM_H - 8;
     this.contentHeight = this.contentBottom - this.contentTop;
 
-    // responsive columns
     this.columns = width >= 430 ? 2 : 1;
     this.cardGap = 10;
     this.cardW =
       this.columns === 2
         ? (width - this.PAD * 2 - this.cardGap) / 2
         : (width - this.PAD * 2);
+
+    // Keep shop definitions available globally in this scene
+    this.shopItems = [
+      { type: 'rapidfire',  label: 'Rapid Fire',     desc: 'Fire rate ×2.5 for 8s',                cost: 40,  color: 0x00e5ff },
+      { type: 'spreadshot', label: 'Spread Shot',    desc: '3-way bullets for 10s',                cost: 50,  color: 0xe040fb },
+      { type: 'shield',     label: 'Shield',         desc: 'Absorbs one hit',                      cost: 60,  color: 0x69ff47 },
+      { type: 'screenbomb', label: 'Screen Bomb',    desc: 'Destroys all enemies instantly',       cost: 80,  color: 0xff6d00 },
+      { type: 'coinmagnet', label: 'Coin Magnet',    desc: 'Attracts coins for 12s',               cost: 35,  color: 0xffeb3b },
+      { type: 'ghostmode',  label: 'Ghost Mode',     desc: 'Invincible + 2× coins for 5s',        cost: 100, color: 0xce93d8 },
+      { type: 'phoenix',    label: 'Phoenix Module', desc: 'Revive once with 1 HP on lethal hit', cost: 120, color: 0xff9e2c },
+    ];
 
     // ── Background ─────────────────────────────────────────
     this.add.rectangle(0, 0, width, height, 0x060a12).setOrigin(0);
@@ -84,7 +98,6 @@ class ShopScene extends Phaser.Scene {
 
     this._showTab(this.activeTab);
 
-    // wheel scroll
     this.input.on('wheel', (_pointer, _go, _dx, dy) => {
       if (this.contentTotalHeight <= this.contentHeight) return;
       this.contentScrollY = Phaser.Math.Clamp(
@@ -346,15 +359,6 @@ class ShopScene extends Phaser.Scene {
     const { width } = this.scale;
     let y = startY;
 
-    this.shopItems = [
-      { type: 'rapidfire',  label: 'Rapid Fire',  desc: 'Fire rate ×2.5 for 8s', cost: 40,  color: 0x00e5ff },
-      { type: 'spreadshot', label: 'Spread Shot', desc: '3-way bullets for 10s', cost: 50,  color: 0xe040fb },
-      { type: 'shield',     label: 'Shield', desc: 'Absorbs one hit', cost: 60, color: 0x69ff47 },
-      { type: 'screenbomb', label: 'Screen Bomb', desc: 'Destroys all enemies instantly', cost: 80, color: 0xff6d00 },
-      { type: 'coinmagnet', label: 'Coin Magnet', desc: 'Attracts coins for 12s', cost: 35, color: 0xffeb3b },
-      { type: 'ghostmode',  label: 'Ghost Mode', desc: 'Invincible + 2× coins for 5s', cost: 100, color: 0xce93d8 },
-    ];
-
     const usedSlots = this.inventory.filter(Boolean).length;
     this._addText(width / 2, y + 8, `Loadout: ${usedSlots} / 3 slots used`, {
       fontSize: '12px',
@@ -370,13 +374,35 @@ class ShopScene extends Phaser.Scene {
       const x = this.PAD + col * (this.cardW + this.cardGap);
       const cy = y + row * (this.CARD_H + this.cardGap);
 
+      const isPhoenix = item.type === 'phoenix';
       const inInv = this.inventory.includes(item.type);
       const canAfford = this.coins >= item.cost;
-      const canBuy = canAfford && !inInv;
+      const phoenixLimitReached = isPhoenix && this.phoenixBoughtCount >= 2;
+      const phoenixAlreadyActive = isPhoenix && this.hasPhoenixModule;
+      const blockedBySpecialRule = phoenixLimitReached || phoenixAlreadyActive;
+      const canBuy = canAfford && !inInv && !blockedBySpecialRule;
+
       const hex = '#' + item.color.toString(16).padStart(6, '0');
-      const alpha = canBuy || inInv ? 1 : 0.38;
+      const alpha = canBuy || inInv || blockedBySpecialRule ? 1 : 0.38;
 
       const card = this._makeCard(x, cy, this.cardW, this.CARD_H, item.color, canBuy);
+
+      let desc = item.desc;
+      let priceLabel = `${item.cost} ¢`;
+      let priceColor = canAfford ? '#ffeb3b' : '#ff5577';
+
+      if (inInv) {
+        priceLabel = 'Owned';
+        priceColor = hex;
+      } else if (phoenixAlreadyActive) {
+        desc = 'Phoenix is already armed on your ship';
+        priceLabel = 'Active';
+        priceColor = hex;
+      } else if (phoenixLimitReached) {
+        desc = 'Maximum 2 purchases per run';
+        priceLabel = 'Limit';
+        priceColor = '#ff5577';
+      }
 
       this._addText(x + 12, cy + 12, item.label, {
         fontSize: '13px',
@@ -385,17 +411,17 @@ class ShopScene extends Phaser.Scene {
         fontStyle: 'bold',
       }).setAlpha(alpha);
 
-      this._addText(x + 12, cy + 33, item.desc, {
+      this._addText(x + 12, cy + 33, desc, {
         fontSize: '10px',
         fontFamily: 'Arial, sans-serif',
         color: '#a9bed3',
         wordWrap: { width: this.cardW - 22 },
       }).setAlpha(alpha);
 
-      this._addText(x + this.cardW - 8, cy + this.CARD_H - 8, inInv ? 'Owned' : `${item.cost} ¢`, {
+      this._addText(x + this.cardW - 8, cy + this.CARD_H - 8, priceLabel, {
         fontSize: '11px',
         fontFamily: 'Arial, sans-serif',
-        color: inInv ? hex : canAfford ? '#ffeb3b' : '#ff5577',
+        color: priceColor,
         fontStyle: 'bold',
       }).setOrigin(1, 1).setAlpha(alpha);
 
@@ -484,7 +510,7 @@ class ShopScene extends Phaser.Scene {
   _buildBottom(width, height) {
     const panelY = height - this.BOTTOM_H;
 
-    const strip = this.add.rectangle(0, panelY, width, this.BOTTOM_H, 0x060a12)
+    this.add.rectangle(0, panelY, width, this.BOTTOM_H, 0x060a12)
       .setOrigin(0)
       .setDepth(20);
 
@@ -493,12 +519,12 @@ class ShopScene extends Phaser.Scene {
       .lineBetween(0, panelY, width, panelY)
       .setDepth(21);
 
-this.add.text(width / 2, panelY + 12, 'Loadout (tap item to sell for 50%)', {
-  fontSize: '10px',
-  fontFamily: 'Arial, sans-serif',
-  color: '#6f8498',
-  letterSpacing: 1,
-}).setOrigin(0.5).setDepth(22);
+    this.add.text(width / 2, panelY + 12, 'Loadout (tap item to sell for 50%)', {
+      fontSize: '10px',
+      fontFamily: 'Arial, sans-serif',
+      color: '#6f8498',
+      letterSpacing: 1,
+    }).setOrigin(0.5).setDepth(22);
 
     this.invSlotGfx = this.add.graphics().setDepth(22);
     this.invLabels = [];
@@ -536,7 +562,7 @@ this.add.text(width / 2, panelY + 12, 'Loadout (tap item to sell for 50%)', {
     for (let i = 0; i < 3; i++) {
       const sx = startX + i * (slotW + gap);
       const type = this.inventory[i];
-      const def = type ? this.shopItems?.find(s => s.type === type) : null;
+      const def = type ? this.shopItems.find(s => s.type === type) : null;
       const col = def ? def.color : 0x1a2a3a;
 
       g.fillStyle(0x080e1a, 1);
@@ -629,14 +655,32 @@ this.add.text(width / 2, panelY + 12, 'Loadout (tap item to sell for 50%)', {
 
   buyPowerup(item) {
     if (this.coins < item.cost) return;
+
+    if (item.type === 'phoenix') {
+      if (this.hasPhoenixModule) {
+        this._toast('Phoenix already active');
+        return;
+      }
+      if (this.phoenixBoughtCount >= 2) {
+        this._toast('Phoenix limit reached');
+        return;
+      }
+    }
+
     const slot = this.inventory.indexOf(null);
     if (slot === -1) {
       this._toast('Inventory full!');
       return;
     }
+
     soundManager.play('uiClick');
     this.coins -= item.cost;
     this.inventory[slot] = item.type;
+
+    if (item.type === 'phoenix') {
+      this.phoenixBoughtCount++;
+    }
+
     this.refreshAll();
   }
 
@@ -654,6 +698,8 @@ this.add.text(width / 2, panelY + 12, 'Loadout (tap item to sell for 50%)', {
       unlockedModes: this.unlockedModes,
       activeModeKey: this.activeModeKey,
       activeTab: this.activeTab,
+      hasPhoenixModule: this.hasPhoenixModule,
+      phoenixBoughtCount: this.phoenixBoughtCount,
     });
   }
 
@@ -669,6 +715,8 @@ this.add.text(width / 2, panelY + 12, 'Loadout (tap item to sell for 50%)', {
       fireRateLevel: this.fireRateLevel,
       unlockedModes: this.unlockedModes,
       activeModeKey: this.activeModeKey,
+      hasPhoenixModule: this.hasPhoenixModule,
+      phoenixBoughtCount: this.phoenixBoughtCount,
     });
   }
 

@@ -48,6 +48,7 @@ class LaserBeam extends FiringBase {
         }
       });
     }
+        soundManager.play('shootRocket');
   }
 
   draw(g) {

@@ -138,6 +138,23 @@ const PlayerShipRenderer = {
     g.strokeEllipse(ship.x, ship.y + 2, 44, 56);
   },
 
+  drawPhoenix(g, ship, scene) {
+  const pulse = 0.72 + Math.sin(scene.time.now / 160) * 0.16;
+  const ember = 0.35 + Math.sin(scene.time.now / 95) * 0.10;
+
+  // soft outer aura
+  g.lineStyle(2, 0xffc83d, 0.55 * pulse);
+  g.strokeCircle(ship.x, ship.y, 30);
+
+  // brighter inner ring
+  g.lineStyle(1.4, 0xffe27a, 0.85 * pulse);
+  g.strokeCircle(ship.x, ship.y, 25);
+
+  // subtle ember halo
+  g.lineStyle(1, 0xff9e2c, 0.45 + ember * 0.25);
+  g.strokeCircle(ship.x, ship.y, 35);
+},
+
   drawShield(g, ship, scene) {
     const pulse = 0.65 + Math.sin(scene.time.now / 180) * 0.25;
 

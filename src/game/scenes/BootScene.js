@@ -14,6 +14,8 @@ class BootScene extends Phaser.Scene {
   create() {
     // ── SFX ───────────────────────────────────────────────
     soundManager.register('shoot',        ShootSound);
+    soundManager.register('shootLaser', LaserShootSound);
+    soundManager.register('shootRocket', RocketShootSound);
     soundManager.register('hit',          HitSound);
     soundManager.register('explosion',    ExplosionSound);
     soundManager.register('playerHit',    PlayerHitSound);
