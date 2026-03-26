@@ -9,7 +9,7 @@
 class Wave1 extends WaveBase {
   constructor(scene) {
     super(scene);
-    this.enemyCount    = 8;
+    this.enemyCount    = 1;
     this.spawnInterval = 1800;
     this.weights = {
       drifter: 1,   // drifters only

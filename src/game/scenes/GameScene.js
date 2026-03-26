@@ -4,26 +4,38 @@ class GameScene extends Phaser.Scene {
   }
 
   init(data) {
-    // Carry state from ShopScene or start fresh
-    this.startWave   = data.wave      || 1;
-    this.score       = data.score     || 0;
-    this.coins       = data.coins     || 0;
-    this.playerHP    = data.playerHP  || 3;
-    this.maxHP       = data.maxHP     || 3;
-    this.inventory   = data.inventory || [null, null, null];
+    this.startWave      = data.wave            || 1;
+    this.score          = data.score           || 0;
+    this.coins          = 1000           || 0;
+    this.playerHP       = data.playerHP        || 3;
+    this.maxHP          = data.maxHP           || 3;
+    this.inventory      = data.inventory       || [null, null, null];
+    this.fireRateLevel  = data.fireRateLevel   || 0;
+    this.unlockedModes  = data.unlockedModes   || ['single'];
+    this.activeModeKey  = data.activeModeKey   || 'single';
   }
 
   create() {
     const { width, height } = this.scale;
 
     // ── Powerup flags ──────────────────────────────────────
-    this.fireRate       = 500;
+    this.baseFireRate   = Math.round(500 * (1 - this.fireRateLevel * 0.1));
+    this.fireRate       = this.baseFireRate;
     this.spreadShot     = false;
     this.hasShield      = false;
     this.ghostMode      = false;
     this.coinMagnet     = false;
     this.coinMultiplier = 1;
-    this.activePowerups = {}; // map of type → { timeLeft, duration, removeFn }
+    this.activePowerups = {};
+
+    // ── Firing modes ───────────────────────────────────────
+    this.firingModes = {
+      single: new SingleShot(this),
+      double: new DoubleShot(this),
+      laser:  new LaserBeam(this),
+      rocket: new Rocket(this),
+    };
+    this.firingMode = this.firingModes[this.activeModeKey] || this.firingModes['single'];
 
     // ── Wave state ─────────────────────────────────────────
     this.wave            = this.startWave;
@@ -38,7 +50,6 @@ class GameScene extends Phaser.Scene {
     this.isPointerDown = false;
     this.targetX  = width / 2;
     this.targetY  = height * 0.75;
-    this.lastFired = 0;
     this.ship = { x: width / 2, y: height * 0.75, w: 28, h: 36 };
 
     // ── Starfield ──────────────────────────────────────────
@@ -66,16 +77,16 @@ class GameScene extends Phaser.Scene {
     this.coinGraphics    = this.add.graphics();
     this.bulletGraphics  = this.add.graphics();
     this.eBulletGraphics = this.add.graphics();
+    this.laserGraphics   = this.add.graphics();
     this.shipGraphics    = this.add.graphics();
     this.fxGraphics      = this.add.graphics();
     this.hudGraphics     = this.add.graphics();
 
     // ── Arrays ─────────────────────────────────────────────
-    this.bullets      = [];
     this.enemyBullets = [];
     this.enemies      = [];
     this.particles    = [];
-    this.coinDrops = [];
+    this.coinDrops    = [];
 
     // ── HUD text ───────────────────────────────────────────
     this.scoreTxt = this.add.text(20, 20, 'SCORE  ' + this.score, {
@@ -107,10 +118,13 @@ class GameScene extends Phaser.Scene {
     // ── Inventory slots HUD ────────────────────────────────
     this.buildInventoryHUD();
 
+    // ── Mode switcher button — top right ───────────────────
+    this.buildModeSwitcher();
+
     // ── Input ──────────────────────────────────────────────
     this.input.on('pointerdown', (p) => {
-      // Don't move ship if tapping inventory area
       if (p.y > this.scale.height - 72) return;
+      if (p.x > this.scale.width - 72 && p.y < 72) return; // guard mode btn
       this.isPointerDown = true; this.targetX = p.x; this.targetY = p.y;
     });
     this.input.on('pointermove', (p) => {
@@ -162,6 +176,63 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // ══════════════════════════════════════════════════════════
+  // MODE SWITCHER — top right corner button
+  // ══════════════════════════════════════════════════════════
+
+  buildModeSwitcher() {
+    const { width } = this.scale;
+    const size = 52;
+    const x    = width - size / 2 - 10;
+    const y    = size / 2 + 10;
+
+    // Background button
+    this.modeBtnBg = this.add.rectangle(x, y, size, size, 0x0a1628)
+      .setStrokeStyle(1, 0x00e5ff, 0.6)
+      .setDepth(16)
+      .setInteractive({ useHandCursor: true });
+
+    // Mode icon
+    this.modeIcon = this.add.text(x, y - 8, this.firingMode.icon, {
+      fontSize: '18px', fontFamily: 'Arial, sans-serif',
+      color: this.firingMode.color, fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(17);
+
+    // Mode label
+    this.modeLabel = this.add.text(x, y + 10, this.firingMode.label, {
+      fontSize: '9px', fontFamily: 'Arial, sans-serif',
+      color: 'rgba(200,216,240,0.6)',
+    }).setOrigin(0.5).setDepth(17);
+
+    this.modeBtnBg.on('pointerover', () => this.modeBtnBg.setFillStyle(0x0d2040));
+    this.modeBtnBg.on('pointerout',  () => this.modeBtnBg.setFillStyle(0x0a1628));
+    this.modeBtnBg.on('pointerdown', () => this.cycleMode());
+  }
+
+  cycleMode() {
+    // Only cycle through unlocked modes
+    const unlocked = this.unlockedModes.filter(k => this.firingModes[k]);
+    if (unlocked.length <= 1) return;
+
+    const currentIdx = unlocked.indexOf(this.firingMode.key);
+    const nextIdx    = (currentIdx + 1) % unlocked.length;
+    const nextKey    = unlocked[nextIdx];
+
+    // Deactivate current
+    this.firingMode.deactivate();
+
+    // Switch
+    this.firingMode     = this.firingModes[nextKey];
+    this.activeModeKey  = nextKey;
+
+    // Update button visuals
+    this.modeIcon.setText(this.firingMode.icon).setColor(this.firingMode.color);
+    this.modeLabel.setText(this.firingMode.label);
+    this.modeBtnBg.setStrokeStyle(1, parseInt(this.firingMode.color.replace('#', '0x')), 0.8);
+
+    soundManager.play('uiClick');
+  }
+
   activateSlot(slotIndex) {
     const type = this.inventory[slotIndex];
     if (!type) return;
@@ -177,7 +248,7 @@ class GameScene extends Phaser.Scene {
 
   applyPowerup(type) {
     const powerupDefs = {
-      rapidfire:  { duration: 8000,  apply: (s) => { s.fireRate = 180; },       remove: (s) => { s.fireRate = 500; } },
+      rapidfire:  { duration: 8000,  apply: (s) => { s.fireRate = Math.round(s.baseFireRate * 0.36); }, remove: (s) => { s.fireRate = s.baseFireRate; } },
       spreadshot: { duration: 10000, apply: (s) => { s.spreadShot = true; },    remove: (s) => { s.spreadShot = false; } },
       shield:     { duration: -1,    apply: (s) => { s.hasShield = true; },      remove: (s) => { s.hasShield = false; } },
       screenbomb: { duration: -1,    apply: (s) => { s.triggerScreenBomb(); },   remove: () => {} },
@@ -294,6 +365,7 @@ class GameScene extends Phaser.Scene {
     this.coinDrops       = [];
     this.waveClearLocked = false;
     this.removeAllPowerups();
+    if (this.firingMode) this.firingMode.deactivate();
     this.formation.reset();
 
     this.wave = waveNum;
@@ -336,13 +408,16 @@ class GameScene extends Phaser.Scene {
       0x00e5ff, 2200,
       () => {
         this.scene.start('ShopScene', {
-          wave:      this.wave,
-          maxWaves:  this.maxWaves,
-          score:     this.score,
-          coins:     this.coins,
-          playerHP:  this.playerHP,
-          maxHP:     this.maxHP,
-          inventory: this.inventory,
+          wave:          this.wave,
+          maxWaves:      this.maxWaves,
+          score:         this.score,
+          coins:         this.coins,
+          playerHP:      this.playerHP,
+          maxHP:         this.maxHP,
+          inventory:     this.inventory,
+          fireRateLevel: this.fireRateLevel,
+          unlockedModes: this.unlockedModes,
+          activeModeKey: this.activeModeKey,
         });
       }
     );
@@ -391,38 +466,32 @@ class GameScene extends Phaser.Scene {
     });
     this.drawPowerupBars();
 
-    // ── Fire bullets ───────────────────────────────────────
-    if (time > this.lastFired + this.fireRate) {
-      const bx = this.ship.x, by = this.ship.y - this.ship.h / 2;
-      this.bullets.push({ x: bx, y: by, speed: 10, vx: 0 });
-      if (this.spreadShot) {
-        this.bullets.push({ x: bx, y: by, speed: 10, vx: -3 });
-        this.bullets.push({ x: bx, y: by, speed: 10, vx:  3 });
-      }
-      soundManager.play('shoot');
-      this.lastFired = time;
-    }
+    // ── Fire via active mode ───────────────────────────────
+    this.firingMode.update(time, delta);
 
-    // ── Wave update — handles spawning and clear detection ─
+    // ── Wave update ────────────────────────────────────────
     if (this.currentWave) this.currentWave.update(delta);
 
-    // ── Managers ───────────────────────────────────────────
+    // ── Formation ──────────────────────────────────────────
     this.formation.update(time, delta);
 
-    // ── Enemy AI ───────────────────────────────────────────
-    // ── Update enemies via class methods ───────────────────
+    // ── Enemies ────────────────────────────────────────────
     this.enemies.forEach(e => e.update(delta));
     this.enemies = this.enemies.filter(e => e.alive && !e.isOffScreen());
 
-    // ── Update arrays ──────────────────────────────────────
+    // ── Update bullets ─────────────────────────────────────
     this.bullets = this.bullets.filter(b => {
       b.x += b.vx || 0; b.y -= b.speed;
       return b.y > -20 && b.x > -10 && b.x < width + 10;
     });
+
+    // ── Enemy bullets ──────────────────────────────────────
     this.enemyBullets = this.enemyBullets.filter(b => {
       b.x += b.vx; b.y += b.vy;
       return b.y < height + 20 && b.x > -20 && b.x < width + 20;
     });
+
+    // ── Particles ──────────────────────────────────────────
     this.particles = this.particles.filter(p => {
       p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
       p.alpha = p.life / p.maxLife;
@@ -495,6 +564,7 @@ class GameScene extends Phaser.Scene {
     this.drawCoins();
     this.drawEnemyBullets();
     this.drawBullets();
+    this.firingMode.draw(this.laserGraphics);
     this.drawShip();
     this.drawParticles();
     this.drawInventoryBar();
@@ -584,12 +654,48 @@ class GameScene extends Phaser.Scene {
         if (!e.alive) return;
         if (Phaser.Math.Distance.Between(b.x, b.y, e.x, e.y) < e.size) {
           deadBullets.add(bi);
-          e.takeBulletHit(1);
+          if (b.isRocket) {
+            // Rocket — splash damage to all nearby enemies
+            this._rocketSplash(b.x, b.y, b.splashRadius, b.splashDamage);
+          } else {
+            e.takeBulletHit(1);
+          }
         }
       });
     });
     this.bullets = this.bullets.filter((_, i) => !deadBullets.has(i));
     this.enemies = this.enemies.filter(e => e.alive);
+  }
+
+  _rocketSplash(x, y, radius, damage) {
+    // Big explosion visual
+    this.spawnExplosion(x, y, 0xff9900);
+    this.spawnExplosion(x, y, 0xff6600);
+
+    // Damage all enemies in splash radius
+    this.enemies.forEach(e => {
+      if (!e.alive) return;
+      if (Phaser.Math.Distance.Between(x, y, e.x, e.y) < radius) {
+        e.takeBulletHit(damage);
+      }
+    });
+
+    // Also hit formation ships
+    if (this.formation && this.formation.isActive()) {
+      this.formation.ships.forEach(s => {
+        if (!s.alive) return;
+        if (Phaser.Math.Distance.Between(x, y, s.x, s.y) < radius) {
+          s.hp -= damage;
+          if (s.hp <= 0) {
+            s.alive = false;
+            this.spawnExplosion(s.x, s.y, 0x4488ff);
+            this.score += 10;
+            this.spawnCoinDrops(s.x, s.y, 10);
+            this.scoreTxt.setText('SCORE  ' + this.score);
+          }
+        }
+      });
+    }
   }
 
   checkPlayerEnemyCollisions() {
