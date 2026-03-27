@@ -9,6 +9,8 @@
 // scoreValue   — points on kill
 // coinValue    — coins dropped on kill
 
+// LEVEL 1 ENEMY
+
 class Drifter extends EnemyBase {
   constructor(scene, wave) {
     const { width } = scene.scale;
@@ -25,7 +27,7 @@ class Drifter extends EnemyBase {
     this.speed      = Phaser.Math.FloatBetween(1.2, 2.2) + (wave - 1) * 0.25;
     this.color      = 0xff3355;
     this.scoreValue = 5;
-    this.coinValue  = 5;
+    this.coinValue  = 10;
   }
 
   // Can also be spawned at a specific position (used by Splitter children)

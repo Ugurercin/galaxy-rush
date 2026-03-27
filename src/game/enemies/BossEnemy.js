@@ -15,7 +15,7 @@ class BossEnemy extends EnemyBase {
     this.speed = 1.2;
     this.color = 0xff3355;
     this.scoreValue = 120 + wave * 4;
-    this.coinValue = 35 + wave;
+    this.coinValue = 100 + wave;
 
     this.entering = true;
     this.targetY = 140;

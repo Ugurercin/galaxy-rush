@@ -1,14 +1,14 @@
-class DoubleShot extends FiringBase {
+class TripleShot extends FiringBase {
   constructor(scene) {
     super(scene);
-    this.key = 'double';
-    this.label = 'Double';
-    this.icon = '⋈';
-    this.color = '#69ff47';
-    this.fireRateMod = 1.15;
+    this.key = 'triple';
+    this.label = 'Triple';
+    this.icon = '≡';
+    this.color = '#00b0ff';
+    this.fireRateMod = 0.98;
     this.bulletSpeed = 10;
-    this.spread = 10;
-    this.sideVX = 2.0;
+    this.spread = 18;
+    this.sideVX = 1.9;
     this._lastFired = 0;
   }
 
@@ -21,9 +21,11 @@ class DoubleShot extends FiringBase {
 
     if (this.scene.spreadShot) {
       this.spawnSpreadGroup(x - this.spread, by, this.bulletSpeed, this.sideVX);
+      this.spawnSpreadGroup(x,               by, this.bulletSpeed, this.sideVX);
       this.spawnSpreadGroup(x + this.spread, by, this.bulletSpeed, this.sideVX);
     } else {
       this.spawnBullet(x - this.spread, by, this.bulletSpeed, 0);
+      this.spawnBullet(x,               by, this.bulletSpeed, 0);
       this.spawnBullet(x + this.spread, by, this.bulletSpeed, 0);
     }
 

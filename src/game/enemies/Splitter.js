@@ -25,7 +25,7 @@ class Splitter extends EnemyBase {
     this.speed      = Phaser.Math.FloatBetween(1.0, 1.8);
     this.color      = 0x00ccff;
     this.scoreValue = 15;
-    this.coinValue  = 15;
+    this.coinValue  = 25;
 
     // ── Split config ──────────────────────────────────────
     this.hasSplit       = false;

@@ -118,7 +118,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 10,
+    coinBonus: 20,
     musicTrack: 'music',
     formation: null,
     message: {
@@ -143,7 +143,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 11,
+    coinBonus: 25,
     musicTrack: 'music',
     formation: null,
     message: {
@@ -168,7 +168,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 12,
+    coinBonus: 30,
     musicTrack: 'music',
     formation: null,
     message: {
@@ -193,7 +193,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 13,
+    coinBonus: 35,
     musicTrack: 'music',
     formation: null,
     message: {
@@ -218,7 +218,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 16,
+    coinBonus: 50,
     musicTrack: 'formationMusic',
     formation: 'grid',
     message: {

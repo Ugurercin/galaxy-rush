@@ -17,7 +17,7 @@ class Dasher extends EnemyBase {
     this.speed      = Phaser.Math.FloatBetween(1.4, 2.0) + (wave - 1) * 0.2;
     this.color      = 0xffdd44;
     this.scoreValue = 11;
-    this.coinValue  = 10;
+    this.coinValue  = 22;
 
     this.state          = 'drop';   // drop -> charge -> dash
     this.stateTimer     = 0;

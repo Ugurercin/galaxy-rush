@@ -281,10 +281,12 @@ class ShopScene extends Phaser.Scene {
     let y = startY;
 
     this.firingModeItems = [
-      { key: 'double', label: 'Double Shot', desc: 'Two parallel bullets from wing tips', cost: 150, color: 0x69ff47, icon: '⋈' },
-      { key: 'laser',  label: 'Laser Beam',  desc: 'Continuous beam, tick damage', cost: 220, color: 0xff2244, icon: '|' },
-      { key: 'rocket', label: 'Rocket', desc: 'Slow projectile, area explosion', cost: 280, color: 0xff9900, icon: '◈' },
-    ];
+  { key: 'double', label: 'Double Shot',    desc: 'Two parallel bullets from wing tips', cost: 150, color: 0x69ff47, icon: '⋈' },
+  { key: 'triple', label: 'Triple Shot',    desc: 'Three straight bullets in a wide line', cost: 230, color: 0x00b0ff, icon: '≡' },
+  { key: 'quad',   label: 'Quadruple Shot', desc: 'Four straight bullets across the ship front', cost: 320, color: 0xffd54f, icon: '⁞' },
+  { key: 'laser',  label: 'Laser Beam',     desc: 'Continuous beam, tick damage', cost: 220, color: 0xff2244, icon: '|' },
+  { key: 'rocket', label: 'Rocket',         desc: 'Slow projectile, area explosion', cost: 280, color: 0xff9900, icon: '◈' },
+];
 
     const modeDef = this.firingModeItems.find(m => m.key === this.activeModeKey);
     const modeLabel = this.activeModeKey === 'single' ? 'Single Shot' : modeDef?.label || 'Single Shot';
@@ -704,21 +706,21 @@ class ShopScene extends Phaser.Scene {
   }
 
   startNextWave() {
-    soundManager.play('uiClick');
-    this.scene.start('GameScene', {
-      wave: this.wave + 1,
-      score: this.score,
-      coins: this.coins,
-      playerHP: this.playerHP,
-      maxHP: this.maxHP,
-      inventory: this.inventory,
-      fireRateLevel: this.fireRateLevel,
-      unlockedModes: this.unlockedModes,
-      activeModeKey: this.activeModeKey,
-      hasPhoenixModule: this.hasPhoenixModule,
-      phoenixBoughtCount: this.phoenixBoughtCount,
-    });
-  }
+  soundManager.play('uiClick');
+  this.scene.start('GameScene', {
+    wave: this.wave,
+    score: this.score,
+    coins: this.coins,
+    playerHP: this.playerHP,
+    maxHP: this.maxHP,
+    inventory: this.inventory,
+    fireRateLevel: this.fireRateLevel,
+    unlockedModes: this.unlockedModes,
+    activeModeKey: this.activeModeKey,
+    hasPhoenixModule: this.hasPhoenixModule,
+    phoenixBoughtCount: this.phoenixBoughtCount,
+  });
+}
 
   _toast(msg) {
     const { width, height } = this.scale;

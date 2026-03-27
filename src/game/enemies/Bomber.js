@@ -17,7 +17,7 @@ class Bomber extends EnemyBase {
     this.speed      = Phaser.Math.FloatBetween(1.1, 1.8) + (wave - 1) * 0.15;
     this.color      = 0xff6644;
     this.scoreValue = 13;
-    this.coinValue  = 12;
+    this.coinValue  = 18;
 
     this.shootTimer = Phaser.Math.Between(0, 800);
     this.shootRate  = Math.max(850, 1800 - (wave - 1) * 120);

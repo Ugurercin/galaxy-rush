@@ -1,3 +1,6 @@
+
+//LEVEL 2 ENEMY
+
 class ZigZag extends EnemyBase {
   constructor(scene, wave) {
     const { width } = scene.scale;
@@ -13,7 +16,7 @@ class ZigZag extends EnemyBase {
     this.speed      = Phaser.Math.FloatBetween(1.6, 2.4) + (wave - 1) * 0.2;
     this.color      = 0x66ff88;
     this.scoreValue = 7;
-    this.coinValue  = 6;
+    this.coinValue  = 12;
 
     this.baseX      = x;
     this.swingAmp   = Phaser.Math.Between(20, 50);

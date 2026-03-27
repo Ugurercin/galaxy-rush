@@ -24,7 +24,7 @@ class Chaser extends EnemyBase {
     this.chaseSpeed = 3 + (wave - 1) * 0.5;
     this.color      = 0xcc44ff;
     this.scoreValue = 12;
-    this.coinValue  = 12;
+    this.coinValue  = 20;
   }
 
   update(delta) {

@@ -37,10 +37,24 @@ class GameOverScene extends Phaser.Scene {
 
     retryBtn.on('pointerover', () => retryBtn.setFillStyle(0x0d2040));
     retryBtn.on('pointerout',  () => retryBtn.setFillStyle(0x0a1628));
-    retryBtn.on('pointerdown', () => {
-      soundManager.play('uiClick');
-      this.scene.start('GameScene');
-    });
+   retryBtn.on('pointerdown', () => {
+  soundManager.play('uiClick');
+  soundManager.stopMusic();
+
+  this.scene.start('GameScene', {
+    wave: 1,
+    score: 0,
+    coins: 0,
+    playerHP: 3,
+    maxHP: 3,
+    inventory: [null, null, null],
+    fireRateLevel: 0,
+    unlockedModes: ['single'],
+    activeModeKey: 'single',
+    hasPhoenixModule: false,
+    phoenixBoughtCount: 0,
+  });
+});
 
     // Menu button
     const menuBtn = this.add.rectangle(width / 2, height * 0.76, 180, 50, 0x0a1628)

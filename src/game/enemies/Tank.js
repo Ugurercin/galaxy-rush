@@ -17,7 +17,7 @@ class Tank extends EnemyBase {
     this.speed      = Phaser.Math.FloatBetween(0.7, 1.2) + (wave - 1) * 0.08;
     this.color      = 0x8899ff;
     this.scoreValue = 20;
-    this.coinValue  = 20;
+    this.coinValue  = 30;
   }
 
   update(delta) {

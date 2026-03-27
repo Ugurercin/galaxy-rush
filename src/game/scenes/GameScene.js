@@ -6,7 +6,7 @@ class GameScene extends Phaser.Scene {
   init(data) {
     this.startWaveNumber    = data.wave            || 1;
     this.score              = data.score           || 0;
-    this.coins              = 1000;
+    this.coins              = 1000           || 0;
     this.playerHP           = data.playerHP        || 3;
     this.maxHP              = data.maxHP           || 3;
     this.inventory          = data.inventory       || [null, null, null];
@@ -35,9 +35,11 @@ class GameScene extends Phaser.Scene {
     // ── Firing modes ───────────────────────────────────────
     this.firingModes = {
       single: new SingleShot(this),
-      double: new DoubleShot(this),
-      laser:  new LaserBeam(this),
-      rocket: new Rocket(this),
+  double: new DoubleShot(this),
+  triple: new TripleShot(this),
+  quad:   new QuadrupleShot(this),
+  laser:  new LaserBeam(this),
+  rocket: new Rocket(this),
     };
     this.firingMode = this.firingModes[this.activeModeKey] || this.firingModes['single'];
 
@@ -493,18 +495,20 @@ class GameScene extends Phaser.Scene {
   }
 
   startWave() {
-    this.resetWaveState();
+  this.resetWaveState();
 
-    this.waveTxt.setText(`WAVE  ${this.wave} / ${this.maxWaves}`);
+  this.waveTxt.setText(`WAVE  ${this.wave} / ${this.maxWaves}`);
 
-    this.currentWave = createWave(this, this.wave);
+  this.currentWave = createWave(this, this.wave);
 
-    if (this.currentWave?.musicTrack) {
-      soundManager.switchMusic(this.currentWave.musicTrack);
-    }
+  soundManager.musicTracks?.music?.setWave?.(this.wave);
 
-    this.currentWave?.onStart();
+  if (this.currentWave?.musicTrack) {
+    soundManager.switchMusic(this.currentWave.musicTrack);
   }
+
+  this.currentWave?.onStart();
+}
 
   checkWaveClear() {
     if (!this.currentWave) return;
