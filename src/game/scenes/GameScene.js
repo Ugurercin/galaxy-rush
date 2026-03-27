@@ -4,190 +4,183 @@ class GameScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.startWaveNumber    = data.wave            || 1;
-    this.score              = data.score           || 0;
-    this.coins              = data.coins           || 0;
-    this.playerHP           = data.playerHP       || 3;
-    this.maxHP              = data.maxHP         || 3;
-    this.inventory          = data.inventory       || [null, null, null];
-    this.fireRateLevel      = data.fireRateLevel   || 0;
-    this.unlockedModes      = data.unlockedModes   || ['single'];
-    this.activeModeKey      = data.activeModeKey   || 'single';
-    this.hasPhoenixModule   = data.hasPhoenixModule   || false;
+    this.startWaveNumber    = data.wave || 1;
+    this.score              = data.score || 0;
+    this.coins              = data.coins || 0;
+    this.playerHP           = data.playerHP || 3;
+    this.maxHP              = data.maxHP || 3;
+    this.inventory          = data.inventory || [null, null, null];
+    this.fireRateLevel      = data.fireRateLevel || 0;
+    this.unlockedModes      = data.unlockedModes || ['single'];
+    this.activeModeKey      = data.activeModeKey || 'single';
+    this.hasPhoenixModule   = data.hasPhoenixModule || false;
     this.phoenixBoughtCount = data.phoenixBoughtCount || 0;
   }
 
- create() {
-  const { width, height } = this.scale;
+  create() {
+    const { width, height } = this.scale;
 
-  // Resume Web Audio on scene start (important for mobile / browser autoplay rules)
-  soundManager.resume();
+    soundManager.resume();
 
-  // ── Powerup flags ──────────────────────────────────────
-  this.baseFireRate   = Math.round(500 * (1 - this.fireRateLevel * 0.1));
-  this.fireRate       = this.baseFireRate;
-  this.spreadShot     = false;
-  this.hasShield      = false;
-  this.ghostMode      = false;
-  this.coinMagnet     = false;
-  this.hasPhoenixModule = this.hasPhoenixModule || false;
-  this.coinMultiplier = 1;
-  this.activePowerups = {};
-  this.invincible     = false;
+    this.baseFireRate   = Math.round(500 * (1 - this.fireRateLevel * 0.1));
+    this.fireRate       = this.baseFireRate;
+    this.spreadShot     = false;
+    this.hasShield      = false;
+    this.ghostMode      = false;
+    this.coinMagnet     = false;
+    this.hasPhoenixModule = this.hasPhoenixModule || false;
+    this.coinMultiplier = 1;
+    this.activePowerups = {};
+    this.invincible     = false;
 
-  // ── Firing modes ───────────────────────────────────────
-  this.firingModes = {
-    single: new SingleShot(this),
-    double: new DoubleShot(this),
-    triple: new TripleShot(this),
-    quad:   new QuadrupleShot(this),
-    laser:  new LaserBeam(this),
-    rocket: new Rocket(this),
-  };
-  this.firingMode = this.firingModes[this.activeModeKey] || this.firingModes['single'];
+    this.firingModes = {
+      single: new SingleShot(this),
+      double: new DoubleShot(this),
+      triple: new TripleShot(this),
+      quad:   new QuadrupleShot(this),
+      laser:  new LaserBeam(this),
+      rocket: new Rocket(this),
+    };
+    this.firingMode = this.firingModes[this.activeModeKey] || this.firingModes['single'];
 
-  // ── Wave state ─────────────────────────────────────────
-  this.wave                = this.startWaveNumber;
-  this.maxWaves            = WAVE_CONFIGS.length;
-  this.currentWave         = null;
-  this.waveClearLocked     = false;
-  this.isWaveTransitioning = false;
+    this.wave                = this.startWaveNumber;
+    this.maxWaves            = WAVE_CONFIGS.length;
+    this.currentWave         = null;
+    this.waveClearLocked     = false;
+    this.isWaveTransitioning = false;
 
-  // ── Managers ───────────────────────────────────────────
-  this.formation = new FormationManager(this);
+    this.formation = new FormationManager(this);
 
-  // ── Input / ship ───────────────────────────────────────
-  this.isPointerDown = false;
-  this.targetX = width / 2;
-  this.targetY = height * 0.75;
-  this.ship = { x: width / 2, y: height * 0.75, w: 28, h: 36 };
+    this.isPointerDown = false;
+    this.targetX = width / 2;
+    this.targetY = height * 0.75;
+    this.ship = { x: width / 2, y: height * 0.75, w: 28, h: 36 };
 
-  // ── Starfield ──────────────────────────────────────────
-  this.stars = [];
-  const starCounts = [80, 50, 25];
-  const starSpeeds = [0.3, 0.7, 1.2];
-  const starSizes  = [0.8, 1.2, 1.8];
-  const starAlphas = [0.4, 0.6, 1.0];
+    this.stars = [];
+    const starCounts = [80, 50, 25];
+    const starSpeeds = [0.3, 0.7, 1.2];
+    const starSizes  = [0.8, 1.2, 1.8];
+    const starAlphas = [0.4, 0.6, 1.0];
 
-  for (let layer = 0; layer < 3; layer++) {
-    for (let i = 0; i < starCounts[layer]; i++) {
-      this.stars.push({
-        x: Phaser.Math.Between(0, width),
-        y: Phaser.Math.Between(0, height),
-        speed: starSpeeds[layer],
-        size:  starSizes[layer],
-        alpha: starAlphas[layer],
-      });
+    for (let layer = 0; layer < 3; layer++) {
+      for (let i = 0; i < starCounts[layer]; i++) {
+        this.stars.push({
+          x: Phaser.Math.Between(0, width),
+          y: Phaser.Math.Between(0, height),
+          speed: starSpeeds[layer],
+          size:  starSizes[layer],
+          alpha: starAlphas[layer],
+        });
+      }
     }
-  }
 
-  // ── Graphics layers ────────────────────────────────────
-  this.bgGraphics      = this.add.graphics();
-  this.formationGfx    = this.add.graphics();
-  this.enemyGraphics   = this.add.graphics();
-  this.coinGraphics    = this.add.graphics();
-  this.bulletGraphics  = this.add.graphics();
-  this.eBulletGraphics = this.add.graphics();
-  this.laserGraphics   = this.add.graphics();
-  this.shipGraphics    = this.add.graphics();
-  this.fxGraphics      = this.add.graphics();
-  this.hudGraphics     = this.add.graphics();
+    this.bgGraphics      = this.add.graphics();
+    this.formationGfx    = this.add.graphics();
+    this.enemyGraphics   = this.add.graphics();
+    this.coinGraphics    = this.add.graphics();
+    this.bulletGraphics  = this.add.graphics();
+    this.eBulletGraphics = this.add.graphics();
+    this.laserGraphics   = this.add.graphics();
+    this.shipGraphics    = this.add.graphics();
+    this.fxGraphics      = this.add.graphics();
+    this.hudGraphics     = this.add.graphics();
 
-  // ── Arrays ─────────────────────────────────────────────
-  this.enemyBullets = [];
-  this.enemies      = [];
-  this.particles    = [];
-  this.coinDrops    = [];
-  this.bullets      = [];
+    this.enemyBullets = [];
+    this.enemies      = [];
+    this.particles    = [];
+    this.coinDrops    = [];
+    this.bullets      = [];
 
-  // ── HUD text ───────────────────────────────────────────
-  this.scoreTxt = this.add.text(20, 16, 'SCORE  ' + this.score, {
-    fontSize: '14px',
-    fontFamily: 'monospace',
-    color: '#c8d8f0',
-  });
+    this.scoreTxt = this.add.text(20, 16, 'SCORE  ' + this.score, {
+      fontSize: '14px',
+      fontFamily: 'monospace',
+      color: '#c8d8f0',
+    });
 
-  this.coinTxt = this.add.text(20, 38, 'COINS  ' + this.coins, {
-    fontSize: '13px',
-    fontFamily: 'monospace',
-    color: '#ffeb3b',
-  });
+    this.coinTxt = this.add.text(20, 38, 'COINS  ' + this.coins, {
+      fontSize: '13px',
+      fontFamily: 'monospace',
+      color: '#ffeb3b',
+    });
 
-  this.waveTxt = this.add.text(width / 2, 16, `WAVE  ${this.wave} / ${this.maxWaves}`, {
-    fontSize: '13px',
-    fontFamily: 'monospace',
-    color: '#c8d8f0',
-  }).setOrigin(0.5, 0);
+    this.waveTxt = this.add.text(width / 2, 16, `WAVE  ${this.wave} / ${this.maxWaves}`, {
+      fontSize: '13px',
+      fontFamily: 'monospace',
+      color: '#c8d8f0',
+    }).setOrigin(0.5, 0);
 
-  this.hpTxt = this.add.text(width - 20, 16, '', {
-    fontSize: '16px',
-    fontFamily: 'monospace',
-    color: '#ff3355',
-  }).setOrigin(1, 0);
+    this.hpTxt = this.add.text(width - 20, 16, '', {
+      fontSize: '16px',
+      fontFamily: 'monospace',
+      color: '#ff3355',
+    }).setOrigin(1, 0);
 
-  this.refreshHPText();
+    this.refreshHPText();
 
-  this.centerMsg = this.add.text(width / 2, height * 0.38, '', {
-    fontSize: '22px',
-    fontFamily: 'monospace',
-    color: '#00e5ff',
-    fontStyle: 'bold',
-    align: 'center',
-  }).setOrigin(0.5).setAlpha(0).setDepth(10);
+    this.centerMsg = this.add.text(width / 2, height * 0.38, '', {
+      fontSize: '22px',
+      fontFamily: 'monospace',
+      color: '#00e5ff',
+      fontStyle: 'bold',
+      align: 'center',
+    }).setOrigin(0.5).setAlpha(0).setDepth(10);
 
-  this.subMsg = this.add.text(width / 2, height * 0.38 + 36, '', {
-    fontSize: '13px',
-    fontFamily: 'monospace',
-    color: '#ffeb3b',
-    align: 'center',
-  }).setOrigin(0.5).setAlpha(0).setDepth(10);
+    this.subMsg = this.add.text(width / 2, height * 0.38 + 36, '', {
+      fontSize: '13px',
+      fontFamily: 'monospace',
+      color: '#ffeb3b',
+      align: 'center',
+    }).setOrigin(0.5).setAlpha(0).setDepth(10);
 
-  // ── Powerup timer bar ──────────────────────────────────
-  this.powerupBarGfx = this.add.graphics().setDepth(15);
-  this.powerupBarTxt = this.add.text(width / 2, height - 86, '', {
-    fontSize: '10px',
-    fontFamily: 'monospace',
-    color: '#c8d8f0',
-  }).setOrigin(0.5, 1).setDepth(15).setAlpha(0);
+    this.powerupBarGfx = this.add.graphics().setDepth(15);
+    this.powerupBarTxt = this.add.text(width / 2, height - 86, '', {
+      fontSize: '10px',
+      fontFamily: 'monospace',
+      color: '#c8d8f0',
+    }).setOrigin(0.5, 1).setDepth(15).setAlpha(0);
 
-  // ── Inventory slots HUD ────────────────────────────────
-  this.buildInventoryHUD();
+    this.buildInventoryHUD();
+    this.buildModeSwitcher();
 
-  // ── Mode switcher button — top right ───────────────────
-  this.buildModeSwitcher();
+    this.input.on('pointerdown', (p) => {
+      if (p.y > this.scale.height - 72) return;
 
-  // ── Input ──────────────────────────────────────────────
-  this.input.on('pointerdown', (p) => {
-    if (p.y > this.scale.height - 72) return;
+      const inModeBtn =
+        p.x > this.scale.width - 132 &&
+        p.x < this.scale.width - 20 &&
+        p.y > 41 &&
+        p.y < 75;
 
-    const inModeBtn =
-      p.x > this.scale.width - 132 &&
-      p.x < this.scale.width - 20 &&
-      p.y > 41 &&
-      p.y < 75;
+      if (inModeBtn) return;
 
-    if (inModeBtn) return;
-
-    this.isPointerDown = true;
-    this.targetX = p.x;
-    this.targetY = p.y;
-  });
-
-  this.input.on('pointermove', (p) => {
-    if (p.y > this.scale.height - 72) return;
-
-    if (this.isPointerDown) {
+      this.isPointerDown = true;
       this.targetX = p.x;
       this.targetY = p.y;
-    }
-  });
 
-  this.input.on('pointerup', () => {
-    this.isPointerDown = false;
-  });
+      if (this.firingMode && this.firingMode.activate) {
+        this.firingMode.activate();
+      }
+    });
 
-  this.startWave();
-}
+    this.input.on('pointermove', (p) => {
+      if (p.y > this.scale.height - 72) return;
+
+      if (this.isPointerDown) {
+        this.targetX = p.x;
+        this.targetY = p.y;
+      }
+    });
+
+    this.input.on('pointerup', () => {
+      this.isPointerDown = false;
+
+      if (this.firingMode && this.firingMode.deactivate) {
+        this.firingMode.deactivate();
+      }
+    });
+
+    this.startWave();
+  }
 
   buildInventoryHUD() {
     const { width, height } = this.scale;
@@ -273,7 +266,9 @@ class GameScene extends Phaser.Scene {
     const nextIdx    = (currentIdx + 1) % unlocked.length;
     const nextKey    = unlocked[nextIdx];
 
-    this.firingMode.deactivate();
+    if (this.firingMode && this.firingMode.deactivate) {
+      this.firingMode.deactivate();
+    }
 
     this.firingMode    = this.firingModes[nextKey];
     this.activeModeKey = nextKey;
@@ -285,6 +280,10 @@ class GameScene extends Phaser.Scene {
       parseInt(this.firingMode.color.replace('#', '0x')),
       0.8
     );
+
+    if (this.isPointerDown && this.firingMode.activate) {
+      this.firingMode.activate();
+    }
 
     soundManager.play('uiClick');
   }
@@ -471,16 +470,16 @@ class GameScene extends Phaser.Scene {
   }
 
   resetWaveState() {
-    this.enemies         = [];
-    this.enemyBullets    = [];
-    this.bullets         = [];
-    this.coinDrops       = [];
+    this.enemies = [];
+    this.enemyBullets = [];
+    this.bullets = [];
+    this.coinDrops = [];
     this.waveClearLocked = false;
     this.isWaveTransitioning = false;
 
     this.removeAllPowerups();
 
-    if (this.firingMode) {
+    if (this.firingMode && this.firingMode.deactivate) {
       this.firingMode.deactivate();
     }
 
@@ -489,25 +488,30 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-startWave() {
-  this.resetWaveState();
+  startWave() {
+    this.resetWaveState();
 
-  this.waveTxt.setText(`WAVE  ${this.wave} / ${this.maxWaves}`);
+    this.waveTxt.setText(`WAVE  ${this.wave} / ${this.maxWaves}`);
 
-  this.currentWave = createWave(this, this.wave);
+    this.currentWave = createWave(this, this.wave);
 
-  Object.values(soundManager.sounds).forEach(sound => {
-    if (sound && typeof sound.setWave === 'function') {
-      sound.setWave(this.wave);
+    Object.values(soundManager.sounds).forEach(sound => {
+      if (sound && typeof sound.setWave === 'function') {
+        sound.setWave(this.wave);
+      }
+    });
+
+    if (this.currentWave?.musicTrack) {
+      soundManager.setMusic(this.currentWave.musicTrack);
     }
-  });
 
-  if (this.currentWave?.musicTrack) {
-    soundManager.setMusic(this.currentWave.musicTrack);
+    this.currentWave?.onStart();
+
+    if (this.isPointerDown && this.firingMode && this.firingMode.activate) {
+      this.firingMode.activate();
+    }
   }
 
-  this.currentWave?.onStart();
-}
   checkWaveClear() {
     if (!this.currentWave) return;
     if (this.waveClearLocked) return;
@@ -607,6 +611,7 @@ startWave() {
       this.ship.x += (this.targetX - this.ship.x) * 0.18;
       this.ship.y += (this.targetY - this.ship.y) * 0.18;
     }
+
     this.ship.x = Phaser.Math.Clamp(
       this.ship.x,
       this.ship.w / 2 + 10,
@@ -623,9 +628,12 @@ startWave() {
       p.timeLeft -= delta;
       if (p.timeLeft <= 0) this.removePowerup(type);
     });
+
     this.drawPowerupBars();
 
-    this.firingMode.update(time, delta);
+    if (this.firingMode && this.firingMode.update) {
+      this.firingMode.update(time, delta);
+    }
 
     if (this.currentWave) {
       this.currentWave.update(delta);
@@ -636,11 +644,11 @@ startWave() {
     this.enemies.forEach(e => e.update(delta));
     this.enemies = this.enemies.filter(e => e.alive && !e.isOffScreen());
 
-    this.bullets = this.bullets.filter(b => {
-      b.x += b.vx || 0;
-      b.y -= b.speed;
-      return b.y > -20 && b.x > -10 && b.x < width + 10;
-    });
+   this.bullets = this.bullets.filter(b => {
+  b.x += b.vx || 0;
+  b.y -= b.speed;
+  return b.y > -20 && b.y < height + 20 && b.x > -10 && b.x < width + 10;
+});
 
     this.enemyBullets = this.enemyBullets.filter(b => {
       b.x += b.vx;
@@ -657,49 +665,48 @@ startWave() {
       return p.life > 0;
     });
 
-let collected = 0;
-let collectX = this.ship.x;
-let collectY = this.ship.y;
+    let collectedValue = 0;
+    let collectX = this.ship.x;
+    let collectY = this.ship.y;
 
-this.coinDrops = this.coinDrops.filter(c => {
-  c.vx *= 0.92;
-  c.vy = c.vy * 0.92 + 0.18;
-  c.x += c.vx;
-  c.y += c.vy;
-  c.pulse = (c.pulse || 0) + 0.12;
+    this.coinDrops = this.coinDrops.filter(c => {
+      c.vx *= 0.92;
+      c.vy = c.vy * 0.92 + 0.18;
+      c.x += c.vx;
+      c.y += c.vy;
+      c.pulse = (c.pulse || 0) + 0.12;
 
-  const dx = this.ship.x - c.x;
-  const dy = this.ship.y - c.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
+      const dx = this.ship.x - c.x;
+      const dy = this.ship.y - c.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
 
-  // default soft pull
-  if (dist > 0.001 && dist < 100) {
-    c.vx += (dx / dist) * 1.2;
-    c.vy += (dy / dist) * 1.2;
-  }
+      if (dist > 0.001 && dist < 100) {
+        c.vx += (dx / dist) * 1.2;
+        c.vy += (dy / dist) * 1.2;
+      }
 
-  // stronger pull when magnet is active
-  if (this.coinMagnet && dist > 0.001 && dist < 280) {
-    const pull = dist < 120 ? 6.5 : 4.5;
-    c.vx += (dx / dist) * pull;
-    c.vy += (dy / dist) * pull;
-  }
+      if (this.coinMagnet && dist > 0.001 && dist < 280) {
+        const pull = dist < 120 ? 6.5 : 4.5;
+        c.vx += (dx / dist) * pull;
+        c.vy += (dy / dist) * pull;
+      }
 
-  const cdist = Phaser.Math.Distance.Between(c.x, c.y, this.ship.x, this.ship.y);
-  if (cdist < 44) {
-    collected++;
-    collectX = c.x;
-    collectY = c.y;
-    return false;
-  }
+      const cdist = Phaser.Math.Distance.Between(c.x, c.y, this.ship.x, this.ship.y);
+      if (cdist < 44) {
+        collectedValue += c.value || 1;
+        collectX = c.x;
+        collectY = c.y;
+        return false;
+      }
 
-  return c.y < height + 20 && c.x > -20 && c.x < width + 20;
-});
+      return c.y < height + 20 && c.x > -20 && c.x < width + 20;
+    });
 
-    if (collected > 0) {
-      this.coins += collected * this.coinMultiplier;
+    if (collectedValue > 0) {
+      const gained = collectedValue * this.coinMultiplier;
+      this.coins += gained;
       this.coinTxt.setText('COINS  ' + this.coins);
-      this.showCoinCollectText(collectX, collectY - 20, collected * this.coinMultiplier);
+      this.showCoinCollectText(collectX, collectY - 20, gained);
       soundManager.play('coinCollect');
     }
 
@@ -728,7 +735,11 @@ this.coinDrops = this.coinDrops.filter(c => {
     this.drawCoins();
     this.drawEnemyBullets();
     this.drawBullets();
-    this.firingMode.draw(this.laserGraphics);
+
+    if (this.firingMode && this.firingMode.draw) {
+      this.firingMode.draw(this.laserGraphics);
+    }
+
     this.drawShip();
     this.drawParticles();
     this.drawInventoryBar();
@@ -882,7 +893,8 @@ this.coinDrops = this.coinDrops.filter(c => {
 
   spawnCoinDrops(x, y, totalValue) {
     const count = Phaser.Math.Between(3, 5);
-    const valueEach = Math.max(1, Math.floor(totalValue / count));
+    const baseValue = Math.floor(totalValue / count);
+    let remainder = totalValue % count;
 
     for (let i = 0; i < count; i++) {
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -892,10 +904,12 @@ this.coinDrops = this.coinDrops.filter(c => {
         x, y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - 2,
-        value: valueEach,
+        value: baseValue + (remainder > 0 ? 1 : 0),
         pulse: Phaser.Math.FloatBetween(0, Math.PI * 2),
         size: 5,
       });
+
+      if (remainder > 0) remainder--;
     }
   }
 
@@ -939,9 +953,7 @@ this.coinDrops = this.coinDrops.filter(c => {
       this.spawnExplosion(this.ship.x, this.ship.y, 0xff9e2c);
       this.spawnExplosion(this.ship.x, this.ship.y, 0xffd54f);
 
-      const hearts = '♥ '.repeat(this.playerHP).trim();
-      const empty  = '♡ '.repeat(Math.max(0, this.maxHP - this.playerHP)).trim();
-      this.hpTxt.setText(this.playerHP > 0 ? hearts + (empty ? ' ' + empty : '') : '✕');
+      this.refreshHPText();
 
       const txt = this.add.text(this.ship.x, this.ship.y - 34, 'PHOENIX REVIVE!', {
         fontSize: '14px',
@@ -970,9 +982,7 @@ this.coinDrops = this.coinDrops.filter(c => {
     soundManager.play('playerHit');
     this.playerHP--;
 
-    const hearts = '♥ '.repeat(Math.max(0, this.playerHP)).trim();
-    const empty  = '♡ '.repeat(Math.max(0, this.maxHP - this.playerHP)).trim();
-    this.hpTxt.setText(this.playerHP > 0 ? hearts + (empty ? ' ' + empty : '') : '✕');
+    this.refreshHPText();
 
     if (this.playerHP <= 0) {
       this.scene.start('GameOverScene', { score: this.score, coins: this.coins });

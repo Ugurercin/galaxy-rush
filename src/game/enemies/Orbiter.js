@@ -13,7 +13,7 @@ class Orbiter extends EnemyBase {
     this.speed = 1.15 + Math.min(1.2, wave * 0.015);
     this.color = 0x8a7dff;
     this.scoreValue = 16;
-    this.coinValue = 18;
+    this.coinValue = 25;
 
     this.baseX = x;
     this.orbitT = Phaser.Math.FloatBetween(0, Math.PI * 2);

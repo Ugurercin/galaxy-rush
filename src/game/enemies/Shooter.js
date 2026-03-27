@@ -22,7 +22,7 @@ class Shooter extends EnemyBase {
     this.speed      = 0;  // stationary
     this.color      = 0xff9900;
     this.scoreValue = 10;
-    this.coinValue  = 15;
+    this.coinValue  = 20;
 
     // ── Shoot behavior ────────────────────────────────────
     this.shootTimer = 0;

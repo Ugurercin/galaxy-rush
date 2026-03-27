@@ -4,10 +4,10 @@ function getMusicTrackForWave(wave, formation = null, isBoss = false) {
   if (formation) return 'formationMusic';
   if (isBoss) return 'bossMusic';
 
-  // if (wave < 2) return 'music_dark';
-  // if (wave < 4) return 'music_upbeat';
-  // if (wave < 5) return 'music_bouncy';
-  // if (wave < 7) return 'music_dark';
+  if (wave < 2) return 'music_dark';
+  if (wave < 4) return 'music_upbeat';
+  if (wave < 5) return 'music_bouncy';
+  if (wave < 7) return 'music_dark';
 
   return 'music_bouncy';
 }

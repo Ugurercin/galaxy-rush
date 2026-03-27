@@ -16,8 +16,8 @@ function getMusicTrackForWave(wave, formation = null, isBoss = false) {
   if (formation) return 'formationMusic';
   if (isBoss) return 'bossMusic';
 
-  if (wave < 20) return 'music_dark';
-  if (wave < 40) return 'music_upbeat';
+  if (wave < 20) return 'music_upbeat';
+  if (wave < 40) return 'music_dark';
   if (wave < 60) return 'music_bouncy';
   if (wave < 80) return 'music_dark';
 
@@ -129,7 +129,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 4,
+    coinBonus: 10,
     musicTrack: getMusicTrackForWave(1, null, false),
     formation: null,
     message: {
@@ -154,7 +154,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 8,
+    coinBonus: 15,
     musicTrack: getMusicTrackForWave(2, null, false),
     formation: null,
     message: {
@@ -179,7 +179,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 12,
+    coinBonus: 20,
     musicTrack: getMusicTrackForWave(3, null, false),
     formation: null,
     message: {
@@ -204,7 +204,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 16,
+    coinBonus: 25,
     musicTrack: getMusicTrackForWave(4, null, false),
     formation: null,
     message: {
@@ -229,7 +229,7 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 30,
+    coinBonus: 100,
     musicTrack: getMusicTrackForWave(5, 'grid', false),
     formation: 'grid',
     message: {
