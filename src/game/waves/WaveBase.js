@@ -6,17 +6,15 @@
 class WaveBase {
   constructor(scene) {
     this.scene    = scene;
-    this.done     = false;   // true when all enemies spawned + killed
+    this.done     = false;
     this._spawned = 0;
     this._timer   = 0;
 
     // ── Override these in subclasses ─────────────────────
-    this.enemyCount    = 8;      // total enemies to spawn this wave
-    this.spawnInterval = 1600;   // ms between spawns
-    this.formation     = null;   // 'grid' | 'vshape' | null
+    this.enemyCount    = 8;
+    this.spawnInterval = 1600;
+    this.formation     = null;
 
-    // Which enemy types appear and how often
-    // Higher weight = appears more frequently
     this.weights = {
       drifter: 8,
       shooter: 0,
@@ -26,6 +24,8 @@ class WaveBase {
       dasher: 0,
       bomber: 0,
       tank: 0,
+      orbiter: 0,
+      sniper: 0,
     };
   }
 
@@ -36,7 +36,6 @@ class WaveBase {
   update(delta) {
     if (this.done) return;
 
-    // Tick spawn timer
     this._timer += delta;
     if (this._timer >= this.spawnInterval && this._spawned < this.enemyCount) {
       this._timer = 0;
@@ -44,8 +43,6 @@ class WaveBase {
       this._spawned++;
     }
 
-    // Check if wave is cleared
-    // All enemies spawned + none alive on screen + no active formation
     if (
       this._spawned >= this.enemyCount &&
       this.scene.enemies.length === 0 &&
@@ -71,44 +68,49 @@ class WaveBase {
       }
     }
 
-    // Fallback
     this._spawnType(entries[0][0]);
   }
 
   _spawnType(type) {
-  const wave = this.scene.wave;
+    const wave = this.scene.wave;
 
-  switch (type) {
-    case 'drifter':
-      this.scene.enemies.push(new Drifter(this.scene, wave));
-      break;
-    case 'shooter':
-      this.scene.enemies.push(new Shooter(this.scene, wave));
-      break;
-    case 'chaser':
-      this.scene.enemies.push(new Chaser(this.scene, wave));
-      break;
-    case 'splitter':
-      this.scene.enemies.push(new Splitter(this.scene, wave));
-      break;
-    case 'zigzag':
-      this.scene.enemies.push(new ZigZag(this.scene, wave));
-      break;
-    case 'bomber':
-      this.scene.enemies.push(new Bomber(this.scene, wave));
-      break;
-    case 'dasher':
-      this.scene.enemies.push(new Dasher(this.scene, wave));
-      break;
-    case 'tank':
-      this.scene.enemies.push(new Tank(this.scene, wave));
-      break;
-    default:
-      console.warn('Unknown enemy type:', type);
-      this.scene.enemies.push(new Drifter(this.scene, wave));
-      break;
+    switch (type) {
+      case 'drifter':
+        this.scene.enemies.push(new Drifter(this.scene, wave));
+        break;
+      case 'shooter':
+        this.scene.enemies.push(new Shooter(this.scene, wave));
+        break;
+      case 'chaser':
+        this.scene.enemies.push(new Chaser(this.scene, wave));
+        break;
+      case 'splitter':
+        this.scene.enemies.push(new Splitter(this.scene, wave));
+        break;
+      case 'zigzag':
+        this.scene.enemies.push(new ZigZag(this.scene, wave));
+        break;
+      case 'bomber':
+        this.scene.enemies.push(new Bomber(this.scene, wave));
+        break;
+      case 'dasher':
+        this.scene.enemies.push(new Dasher(this.scene, wave));
+        break;
+      case 'tank':
+        this.scene.enemies.push(new Tank(this.scene, wave));
+        break;
+      case 'orbiter':
+        this.scene.enemies.push(new Orbiter(this.scene, wave));
+        break;
+      case 'sniper':
+        this.scene.enemies.push(new SniperEnemy(this.scene, wave));
+        break;
+      default:
+        console.warn('Unknown enemy type:', type);
+        this.scene.enemies.push(new Drifter(this.scene, wave));
+        break;
+    }
   }
-}
 
   // Spawn a formation — called from subclass onStart()
   spawnFormation(type) {
@@ -124,7 +126,6 @@ class WaveBase {
       soundManager.switchMusic('formationMusic');
     }
 
-    // Optional new formations
     if (type === 'zigzagLine') {
       this.scene.formation.spawnGrid(5, 2, 'zigzag');
       this.scene.showMessage('SWARM INCOMING', 'Unstable movement pattern!', 0x66ff88, 1800, null);

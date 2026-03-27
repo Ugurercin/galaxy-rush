@@ -6,9 +6,9 @@ class GameScene extends Phaser.Scene {
   init(data) {
     this.startWaveNumber    = data.wave            || 1;
     this.score              = data.score           || 0;
-    this.coins              = 1000           || 0;
-    this.playerHP           = data.playerHP        || 3;
-    this.maxHP              = data.maxHP           || 3;
+    this.coins              = data.coins           || 0;
+    this.playerHP           = data.playerHP       || 3;
+    this.maxHP              = data.maxHP         || 3;
     this.inventory          = data.inventory       || [null, null, null];
     this.fireRateLevel      = data.fireRateLevel   || 0;
     this.unlockedModes      = data.unlockedModes   || ['single'];
@@ -17,174 +17,177 @@ class GameScene extends Phaser.Scene {
     this.phoenixBoughtCount = data.phoenixBoughtCount || 0;
   }
 
-  create() {
-    const { width, height } = this.scale;
+ create() {
+  const { width, height } = this.scale;
 
-    // ── Powerup flags ──────────────────────────────────────
-    this.baseFireRate   = Math.round(500 * (1 - this.fireRateLevel * 0.1));
-    this.fireRate       = this.baseFireRate;
-    this.spreadShot     = false;
-    this.hasShield      = false;
-    this.ghostMode      = false;
-    this.coinMagnet     = false;
-    this.hasPhoenixModule = this.hasPhoenixModule || false;
-    this.coinMultiplier = 1;
-    this.activePowerups = {};
-    this.invincible     = false;
+  // Resume Web Audio on scene start (important for mobile / browser autoplay rules)
+  soundManager.resume();
 
-    // ── Firing modes ───────────────────────────────────────
-    this.firingModes = {
-      single: new SingleShot(this),
-  double: new DoubleShot(this),
-  triple: new TripleShot(this),
-  quad:   new QuadrupleShot(this),
-  laser:  new LaserBeam(this),
-  rocket: new Rocket(this),
-    };
-    this.firingMode = this.firingModes[this.activeModeKey] || this.firingModes['single'];
+  // ── Powerup flags ──────────────────────────────────────
+  this.baseFireRate   = Math.round(500 * (1 - this.fireRateLevel * 0.1));
+  this.fireRate       = this.baseFireRate;
+  this.spreadShot     = false;
+  this.hasShield      = false;
+  this.ghostMode      = false;
+  this.coinMagnet     = false;
+  this.hasPhoenixModule = this.hasPhoenixModule || false;
+  this.coinMultiplier = 1;
+  this.activePowerups = {};
+  this.invincible     = false;
 
-    // ── Wave state ─────────────────────────────────────────
-    this.wave               = this.startWaveNumber;
-    this.maxWaves           = WAVE_CONFIGS.length; // keep your current chapter/shop cadence
-    this.currentWave        = null;
-    this.waveClearLocked    = false;
-    this.isWaveTransitioning = false;
+  // ── Firing modes ───────────────────────────────────────
+  this.firingModes = {
+    single: new SingleShot(this),
+    double: new DoubleShot(this),
+    triple: new TripleShot(this),
+    quad:   new QuadrupleShot(this),
+    laser:  new LaserBeam(this),
+    rocket: new Rocket(this),
+  };
+  this.firingMode = this.firingModes[this.activeModeKey] || this.firingModes['single'];
 
-    // ── Managers ───────────────────────────────────────────
-    this.formation = new FormationManager(this);
+  // ── Wave state ─────────────────────────────────────────
+  this.wave                = this.startWaveNumber;
+  this.maxWaves            = WAVE_CONFIGS.length;
+  this.currentWave         = null;
+  this.waveClearLocked     = false;
+  this.isWaveTransitioning = false;
 
-    // ── Input / ship ───────────────────────────────────────
-    this.isPointerDown = false;
-    this.targetX  = width / 2;
-    this.targetY  = height * 0.75;
-    this.ship = { x: width / 2, y: height * 0.75, w: 28, h: 36 };
+  // ── Managers ───────────────────────────────────────────
+  this.formation = new FormationManager(this);
 
-    // ── Starfield ──────────────────────────────────────────
-    this.stars = [];
-    const starCounts = [80, 50, 25];
-    const starSpeeds = [0.3, 0.7, 1.2];
-    const starSizes  = [0.8, 1.2, 1.8];
-    const starAlphas = [0.4, 0.6, 1.0];
-    for (let layer = 0; layer < 3; layer++) {
-      for (let i = 0; i < starCounts[layer]; i++) {
-        this.stars.push({
-          x: Phaser.Math.Between(0, width),
-          y: Phaser.Math.Between(0, height),
-          speed: starSpeeds[layer],
-          size:  starSizes[layer],
-          alpha: starAlphas[layer],
-        });
-      }
+  // ── Input / ship ───────────────────────────────────────
+  this.isPointerDown = false;
+  this.targetX = width / 2;
+  this.targetY = height * 0.75;
+  this.ship = { x: width / 2, y: height * 0.75, w: 28, h: 36 };
+
+  // ── Starfield ──────────────────────────────────────────
+  this.stars = [];
+  const starCounts = [80, 50, 25];
+  const starSpeeds = [0.3, 0.7, 1.2];
+  const starSizes  = [0.8, 1.2, 1.8];
+  const starAlphas = [0.4, 0.6, 1.0];
+
+  for (let layer = 0; layer < 3; layer++) {
+    for (let i = 0; i < starCounts[layer]; i++) {
+      this.stars.push({
+        x: Phaser.Math.Between(0, width),
+        y: Phaser.Math.Between(0, height),
+        speed: starSpeeds[layer],
+        size:  starSizes[layer],
+        alpha: starAlphas[layer],
+      });
     }
-
-    // ── Graphics layers ────────────────────────────────────
-    this.bgGraphics      = this.add.graphics();
-    this.formationGfx    = this.add.graphics();
-    this.enemyGraphics   = this.add.graphics();
-    this.coinGraphics    = this.add.graphics();
-    this.bulletGraphics  = this.add.graphics();
-    this.eBulletGraphics = this.add.graphics();
-    this.laserGraphics   = this.add.graphics();
-    this.shipGraphics    = this.add.graphics();
-    this.fxGraphics      = this.add.graphics();
-    this.hudGraphics     = this.add.graphics();
-
-    // ── Arrays ─────────────────────────────────────────────
-    this.enemyBullets = [];
-    this.enemies      = [];
-    this.particles    = [];
-    this.coinDrops    = [];
-    this.bullets      = [];
-
-    // ── HUD text ───────────────────────────────────────────
-    this.scoreTxt = this.add.text(20, 16, 'SCORE  ' + this.score, {
-      fontSize: '14px',
-      fontFamily: 'monospace',
-      color: '#c8d8f0',
-    });
-
-    this.coinTxt = this.add.text(20, 38, 'COINS  ' + this.coins, {
-      fontSize: '13px',
-      fontFamily: 'monospace',
-      color: '#ffeb3b',
-    });
-
-    this.waveTxt = this.add.text(width / 2, 16, `WAVE  ${this.wave} / ${this.maxWaves}`, {
-      fontSize: '13px',
-      fontFamily: 'monospace',
-      color: '#c8d8f0',
-    }).setOrigin(0.5, 0);
-
-    this.hpTxt = this.add.text(width - 20, 16, '♥ '.repeat(this.playerHP).trim(), {
-      fontSize: '16px',
-      fontFamily: 'monospace',
-      color: '#ff3355',
-    }).setOrigin(1, 0);
-
-    this.centerMsg = this.add.text(width / 2, height * 0.38, '', {
-      fontSize: '22px',
-      fontFamily: 'monospace',
-      color: '#00e5ff',
-      fontStyle: 'bold',
-      align: 'center',
-    }).setOrigin(0.5).setAlpha(0).setDepth(10);
-
-    this.subMsg = this.add.text(width / 2, height * 0.38 + 36, '', {
-      fontSize: '13px',
-      fontFamily: 'monospace',
-      color: '#ffeb3b',
-      align: 'center',
-    }).setOrigin(0.5).setAlpha(0).setDepth(10);
-
-    // ── Powerup timer bar ──────────────────────────────────
-    this.powerupBarGfx = this.add.graphics().setDepth(15);
-    this.powerupBarTxt = this.add.text(width / 2, height - 86, '', {
-      fontSize: '10px',
-      fontFamily: 'monospace',
-      color: '#c8d8f0',
-    }).setOrigin(0.5, 1).setDepth(15).setAlpha(0);
-
-    // ── Inventory slots HUD ────────────────────────────────
-    this.buildInventoryHUD();
-
-    // ── Mode switcher button — top right ───────────────────
-    this.buildModeSwitcher();
-
-    // ── Input ──────────────────────────────────────────────
-    this.input.on('pointerdown', (p) => {
-      if (p.y > this.scale.height - 72) return;
-
-      const inModeBtn =
-        p.x > this.scale.width - 132 &&
-        p.x < this.scale.width - 20 &&
-        p.y > 41 &&
-        p.y < 75;
-
-      if (inModeBtn) return;
-
-      this.isPointerDown = true;
-      this.targetX = p.x;
-      this.targetY = p.y;
-    });
-
-    this.input.on('pointermove', (p) => {
-      if (p.y > this.scale.height - 72) return;
-      if (this.isPointerDown) {
-        this.targetX = p.x;
-        this.targetY = p.y;
-      }
-    });
-
-    this.input.on('pointerup', () => {
-      this.isPointerDown = false;
-    });
-
-    this.startWave();
   }
 
-  // ══════════════════════════════════════════════════════════
-  // INVENTORY HUD — 3 tappable slots at bottom
-  // ══════════════════════════════════════════════════════════
+  // ── Graphics layers ────────────────────────────────────
+  this.bgGraphics      = this.add.graphics();
+  this.formationGfx    = this.add.graphics();
+  this.enemyGraphics   = this.add.graphics();
+  this.coinGraphics    = this.add.graphics();
+  this.bulletGraphics  = this.add.graphics();
+  this.eBulletGraphics = this.add.graphics();
+  this.laserGraphics   = this.add.graphics();
+  this.shipGraphics    = this.add.graphics();
+  this.fxGraphics      = this.add.graphics();
+  this.hudGraphics     = this.add.graphics();
+
+  // ── Arrays ─────────────────────────────────────────────
+  this.enemyBullets = [];
+  this.enemies      = [];
+  this.particles    = [];
+  this.coinDrops    = [];
+  this.bullets      = [];
+
+  // ── HUD text ───────────────────────────────────────────
+  this.scoreTxt = this.add.text(20, 16, 'SCORE  ' + this.score, {
+    fontSize: '14px',
+    fontFamily: 'monospace',
+    color: '#c8d8f0',
+  });
+
+  this.coinTxt = this.add.text(20, 38, 'COINS  ' + this.coins, {
+    fontSize: '13px',
+    fontFamily: 'monospace',
+    color: '#ffeb3b',
+  });
+
+  this.waveTxt = this.add.text(width / 2, 16, `WAVE  ${this.wave} / ${this.maxWaves}`, {
+    fontSize: '13px',
+    fontFamily: 'monospace',
+    color: '#c8d8f0',
+  }).setOrigin(0.5, 0);
+
+  this.hpTxt = this.add.text(width - 20, 16, '', {
+    fontSize: '16px',
+    fontFamily: 'monospace',
+    color: '#ff3355',
+  }).setOrigin(1, 0);
+
+  this.refreshHPText();
+
+  this.centerMsg = this.add.text(width / 2, height * 0.38, '', {
+    fontSize: '22px',
+    fontFamily: 'monospace',
+    color: '#00e5ff',
+    fontStyle: 'bold',
+    align: 'center',
+  }).setOrigin(0.5).setAlpha(0).setDepth(10);
+
+  this.subMsg = this.add.text(width / 2, height * 0.38 + 36, '', {
+    fontSize: '13px',
+    fontFamily: 'monospace',
+    color: '#ffeb3b',
+    align: 'center',
+  }).setOrigin(0.5).setAlpha(0).setDepth(10);
+
+  // ── Powerup timer bar ──────────────────────────────────
+  this.powerupBarGfx = this.add.graphics().setDepth(15);
+  this.powerupBarTxt = this.add.text(width / 2, height - 86, '', {
+    fontSize: '10px',
+    fontFamily: 'monospace',
+    color: '#c8d8f0',
+  }).setOrigin(0.5, 1).setDepth(15).setAlpha(0);
+
+  // ── Inventory slots HUD ────────────────────────────────
+  this.buildInventoryHUD();
+
+  // ── Mode switcher button — top right ───────────────────
+  this.buildModeSwitcher();
+
+  // ── Input ──────────────────────────────────────────────
+  this.input.on('pointerdown', (p) => {
+    if (p.y > this.scale.height - 72) return;
+
+    const inModeBtn =
+      p.x > this.scale.width - 132 &&
+      p.x < this.scale.width - 20 &&
+      p.y > 41 &&
+      p.y < 75;
+
+    if (inModeBtn) return;
+
+    this.isPointerDown = true;
+    this.targetX = p.x;
+    this.targetY = p.y;
+  });
+
+  this.input.on('pointermove', (p) => {
+    if (p.y > this.scale.height - 72) return;
+
+    if (this.isPointerDown) {
+      this.targetX = p.x;
+      this.targetY = p.y;
+    }
+  });
+
+  this.input.on('pointerup', () => {
+    this.isPointerDown = false;
+  });
+
+  this.startWave();
+}
 
   buildInventoryHUD() {
     const { width, height } = this.scale;
@@ -229,10 +232,6 @@ class GameScene extends Phaser.Scene {
       this.slotButtons.push({ btn, label, slot: i });
     }
   }
-
-  // ══════════════════════════════════════════════════════════
-  // MODE SWITCHER — top right corner button
-  // ══════════════════════════════════════════════════════════
 
   buildModeSwitcher() {
     const { width } = this.scale;
@@ -471,10 +470,6 @@ class GameScene extends Phaser.Scene {
     return colors[type] || 0xffffff;
   }
 
-  // ══════════════════════════════════════════════════════════
-  // WAVE SYSTEM
-  // ══════════════════════════════════════════════════════════
-
   resetWaveState() {
     this.enemies         = [];
     this.enemyBullets    = [];
@@ -494,22 +489,25 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  startWave() {
+startWave() {
   this.resetWaveState();
 
   this.waveTxt.setText(`WAVE  ${this.wave} / ${this.maxWaves}`);
 
   this.currentWave = createWave(this, this.wave);
 
-  soundManager.musicTracks?.music?.setWave?.(this.wave);
+  Object.values(soundManager.sounds).forEach(sound => {
+    if (sound && typeof sound.setWave === 'function') {
+      sound.setWave(this.wave);
+    }
+  });
 
   if (this.currentWave?.musicTrack) {
-    soundManager.switchMusic(this.currentWave.musicTrack);
+    soundManager.setMusic(this.currentWave.musicTrack);
   }
 
   this.currentWave?.onStart();
 }
-
   checkWaveClear() {
     if (!this.currentWave) return;
     if (this.waveClearLocked) return;
@@ -521,55 +519,55 @@ class GameScene extends Phaser.Scene {
     this.onWaveCleared();
   }
 
- onWaveCleared() {
-  if (!this.currentWave) return;
+  onWaveCleared() {
+    if (!this.currentWave) return;
 
-  const coinBonus = this.currentWave.coinBonus || 0;
-  this.coins += coinBonus;
-  this.coinTxt.setText('COINS  ' + this.coins);
+    const coinBonus = this.currentWave.coinBonus || 0;
+    this.coins += coinBonus;
+    this.coinTxt.setText('COINS  ' + this.coins);
 
-  const nextWave = this.wave + 1;
+    const nextWave = this.wave + 1;
 
-  if (this.wave >= this.maxWaves) {
+    if (this.wave >= this.maxWaves) {
+      this.showMessage(
+        'RUN COMPLETE',
+        `You survived all ${this.maxWaves} waves!`,
+        0x69ff47,
+        2600,
+        () => {
+          this.scene.start('GameOverScene', {
+            score: this.score,
+            coins: this.coins,
+          });
+        }
+      );
+      return;
+    }
+
+    soundManager.play('uiClick');
     this.showMessage(
-      'RUN COMPLETE',
-      'You survived all 50 waves!',
-      0x69ff47,
-      2600,
+      `WAVE ${this.wave} CLEARED`,
+      `+${coinBonus} coins  —  Shop opening...`,
+      0x00e5ff,
+      2200,
       () => {
-        this.scene.start('GameOverScene', {
+        this.scene.start('ShopScene', {
+          wave: nextWave,
+          maxWaves: this.maxWaves,
           score: this.score,
           coins: this.coins,
+          playerHP: this.playerHP,
+          maxHP: this.maxHP,
+          inventory: this.inventory,
+          fireRateLevel: this.fireRateLevel,
+          unlockedModes: this.unlockedModes,
+          activeModeKey: this.activeModeKey,
+          hasPhoenixModule: this.hasPhoenixModule,
+          phoenixBoughtCount: this.phoenixBoughtCount,
         });
       }
     );
-    return;
   }
-
-  soundManager.play('uiClick');
-  this.showMessage(
-    `WAVE ${this.wave} CLEARED`,
-    `+${coinBonus} coins  —  Shop opening...`,
-    0x00e5ff,
-    2200,
-    () => {
-      this.scene.start('ShopScene', {
-        wave: nextWave,
-        maxWaves: this.maxWaves,
-        score: this.score,
-        coins: this.coins,
-        playerHP: this.playerHP,
-        maxHP: this.maxHP,
-        inventory: this.inventory,
-        fireRateLevel: this.fireRateLevel,
-        unlockedModes: this.unlockedModes,
-        activeModeKey: this.activeModeKey,
-        hasPhoenixModule: this.hasPhoenixModule,
-        phoenixBoughtCount: this.phoenixBoughtCount,
-      });
-    }
-  );
-}
 
   showMessage(title, sub, color, duration, onDone) {
     this.centerMsg
@@ -602,14 +600,9 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  // ══════════════════════════════════════════════════════════
-  // UPDATE
-  // ══════════════════════════════════════════════════════════
-
   update(time, delta) {
     const { width, height } = this.scale;
 
-    // ── Ship movement ──────────────────────────────────────
     if (this.isPointerDown) {
       this.ship.x += (this.targetX - this.ship.x) * 0.18;
       this.ship.y += (this.targetY - this.ship.y) * 0.18;
@@ -625,7 +618,6 @@ class GameScene extends Phaser.Scene {
       height - this.ship.h / 2 - 80
     );
 
-    // ── Powerup timers — all run independently ─────────────
     Object.keys(this.activePowerups).forEach(type => {
       const p = this.activePowerups[type];
       p.timeLeft -= delta;
@@ -633,36 +625,29 @@ class GameScene extends Phaser.Scene {
     });
     this.drawPowerupBars();
 
-    // ── Fire via active mode ───────────────────────────────
     this.firingMode.update(time, delta);
 
-    // ── Wave update ────────────────────────────────────────
     if (this.currentWave) {
       this.currentWave.update(delta);
     }
 
-    // ── Formation ──────────────────────────────────────────
     this.formation.update(time, delta);
 
-    // ── Enemies ────────────────────────────────────────────
     this.enemies.forEach(e => e.update(delta));
     this.enemies = this.enemies.filter(e => e.alive && !e.isOffScreen());
 
-    // ── Update bullets ─────────────────────────────────────
     this.bullets = this.bullets.filter(b => {
       b.x += b.vx || 0;
       b.y -= b.speed;
       return b.y > -20 && b.x > -10 && b.x < width + 10;
     });
 
-    // ── Enemy bullets ──────────────────────────────────────
     this.enemyBullets = this.enemyBullets.filter(b => {
       b.x += b.vx;
       b.y += b.vy;
       return b.y < height + 20 && b.x > -20 && b.x < width + 20;
     });
 
-    // ── Particles ──────────────────────────────────────────
     this.particles = this.particles.filter(p => {
       p.x += p.vx;
       p.y += p.vy;
@@ -672,38 +657,44 @@ class GameScene extends Phaser.Scene {
       return p.life > 0;
     });
 
-    // ── Update coins ───────────────────────────────────────
-    let collected = 0;
-    let collectX = this.ship.x;
-    let collectY = this.ship.y;
+let collected = 0;
+let collectX = this.ship.x;
+let collectY = this.ship.y;
 
-    this.coinDrops = this.coinDrops.filter(c => {
-      c.vx *= 0.92;
-      c.vy = c.vy * 0.92 + 0.18;
-      c.x += c.vx;
-      c.y += c.vy;
-      c.pulse = (c.pulse || 0) + 0.12;
+this.coinDrops = this.coinDrops.filter(c => {
+  c.vx *= 0.92;
+  c.vy = c.vy * 0.92 + 0.18;
+  c.x += c.vx;
+  c.y += c.vy;
+  c.pulse = (c.pulse || 0) + 0.12;
 
-      if (this.coinMagnet) {
-        const dx = this.ship.x - c.x;
-        const dy = this.ship.y - c.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 200) {
-          c.vx += (dx / dist) * 3.5;
-          c.vy += (dy / dist) * 3.5;
-        }
-      }
+  const dx = this.ship.x - c.x;
+  const dy = this.ship.y - c.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
 
-      const cdist = Phaser.Math.Distance.Between(c.x, c.y, this.ship.x, this.ship.y);
-      if (cdist < 22) {
-        collected++;
-        collectX = c.x;
-        collectY = c.y;
-        return false;
-      }
+  // default soft pull
+  if (dist > 0.001 && dist < 100) {
+    c.vx += (dx / dist) * 1.2;
+    c.vy += (dy / dist) * 1.2;
+  }
 
-      return c.y < height + 20 && c.x > -20 && c.x < width + 20;
-    });
+  // stronger pull when magnet is active
+  if (this.coinMagnet && dist > 0.001 && dist < 280) {
+    const pull = dist < 120 ? 6.5 : 4.5;
+    c.vx += (dx / dist) * pull;
+    c.vy += (dy / dist) * pull;
+  }
+
+  const cdist = Phaser.Math.Distance.Between(c.x, c.y, this.ship.x, this.ship.y);
+  if (cdist < 44) {
+    collected++;
+    collectX = c.x;
+    collectY = c.y;
+    return false;
+  }
+
+  return c.y < height + 20 && c.x > -20 && c.x < width + 20;
+});
 
     if (collected > 0) {
       this.coins += collected * this.coinMultiplier;
@@ -712,7 +703,6 @@ class GameScene extends Phaser.Scene {
       soundManager.play('coinCollect');
     }
 
-    // ── Collisions ─────────────────────────────────────────
     this.checkBulletEnemyCollisions();
     this.bullets = this.formation.checkBulletCollisions(this.bullets);
 
@@ -724,7 +714,6 @@ class GameScene extends Phaser.Scene {
     this.checkEnemyBulletPlayerCollisions();
     this.checkWaveClear();
 
-    // ── Stars ──────────────────────────────────────────────
     this.stars.forEach(s => {
       s.y += s.speed;
       if (s.y > height) {
@@ -733,7 +722,6 @@ class GameScene extends Phaser.Scene {
       }
     });
 
-    // ── Draw ───────────────────────────────────────────────
     this.drawBackground();
     this.formation.draw(this.formationGfx);
     this.drawEnemies();
@@ -798,10 +786,6 @@ class GameScene extends Phaser.Scene {
     g.lineBetween(0, height - 72, width, height - 72);
   }
 
-  // ══════════════════════════════════════════════════════════
-  // SPAWNING
-  // ══════════════════════════════════════════════════════════
-
   spawnDrifter(x, y, size, speed) {
     this.enemies.push(Drifter.spawnAt(this, x, y, size, speed));
   }
@@ -816,10 +800,6 @@ class GameScene extends Phaser.Scene {
       vy: Math.sin(angle) * spd,
     });
   }
-
-  // ══════════════════════════════════════════════════════════
-  // COLLISIONS
-  // ══════════════════════════════════════════════════════════
 
   checkBulletEnemyCollisions() {
     const deadBullets = new Set();
@@ -1006,10 +986,6 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  // ══════════════════════════════════════════════════════════
-  // FX
-  // ══════════════════════════════════════════════════════════
-
   spawnExplosion(x, y, color) {
     for (let i = 0; i < 12; i++) {
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
@@ -1027,10 +1003,6 @@ class GameScene extends Phaser.Scene {
       });
     }
   }
-
-  // ══════════════════════════════════════════════════════════
-  // DRAW
-  // ══════════════════════════════════════════════════════════
 
   drawBackground() {
     const { width, height } = this.scale;
@@ -1070,5 +1042,31 @@ class GameScene extends Phaser.Scene {
 
   drawCoins() {
     CoinRenderer.draw(this.coinGraphics, this.coinDrops);
+  }
+
+  formatHPText(currentHP, maxHP) {
+    const filled = Math.max(0, currentHP | 0);
+    const max = Math.max(1, maxHP | 0);
+
+    if (max <= 5) {
+      const hearts = '♥ '.repeat(filled).trim();
+      const empty  = '♡ '.repeat(Math.max(0, max - filled)).trim();
+      return filled > 0 ? hearts + (empty ? ' ' + empty : '') : '✕';
+    }
+
+    const shownFilled = Math.min(5, filled);
+    const hearts = '♥ '.repeat(shownFilled).trim();
+
+    if (filled <= 0) return '✕';
+    if (filled <= 5) {
+      const empty = '♡ '.repeat(Math.max(0, 5 - filled)).trim();
+      return hearts + (empty ? ' ' + empty : '') + `  x${max}`;
+    }
+
+    return `${hearts}  x${filled}/${max}`;
+  }
+
+  refreshHPText() {
+    this.hpTxt.setText(this.formatHPText(this.playerHP, this.maxHP));
   }
 }

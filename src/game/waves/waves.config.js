@@ -1,5 +1,3 @@
-// waves.config.js
-
 const WAVE_CONFIGS = [];
 
 function clamp(n, min, max) {
@@ -14,6 +12,18 @@ function isFormationWave(wave) {
   return wave % 10 === 5;
 }
 
+function getMusicTrackForWave(wave, formation = null, isBoss = false) {
+  if (formation) return 'formationMusic';
+  if (isBoss) return 'bossMusic';
+
+  if (wave < 20) return 'music_dark';
+  if (wave < 40) return 'music_upbeat';
+  if (wave < 60) return 'music_bouncy';
+  if (wave < 80) return 'music_dark';
+
+  return 'music_upbeat';
+}
+
 function makeWeights(wave) {
   return {
     drifter:  clamp(10 - Math.floor(wave / 5), 1, 10),
@@ -22,7 +32,9 @@ function makeWeights(wave) {
     chaser:   wave >= 5  ? clamp(Math.floor((wave - 3) / 5), 1, 5) : 0,
     bomber:   wave >= 7  ? clamp(Math.floor((wave - 5) / 6), 1, 4) : 0,
     dasher:   wave >= 10 ? clamp(Math.floor((wave - 8) / 7), 1, 4) : 0,
+    orbiter:  wave >= 12 ? clamp(Math.floor((wave - 10) / 7), 1, 4) : 0,
     splitter: wave >= 14 ? clamp(Math.floor((wave - 10) / 8), 1, 3) : 0,
+    sniper:   wave >= 16 ? clamp(Math.floor((wave - 14) / 8), 1, 3) : 0,
     tank:     wave >= 18 ? clamp(Math.floor((wave - 14) / 10), 1, 2) : 0,
   };
 }
@@ -81,7 +93,7 @@ function makeWaveConfig(wave) {
   const coinBonus =
     wave <= 5
       ? 8 + wave * 2
-      : 14 + Math.floor(wave * 0.9);
+      : 30 + (wave - 5) * 10;
 
   return {
     id: wave,
@@ -90,18 +102,17 @@ function makeWaveConfig(wave) {
     spawnInterval,
     weights: makeWeights(wave),
     coinBonus,
-    musicTrack: formation ? 'formationMusic' : 'music',
+    musicTrack: getMusicTrackForWave(wave, formation, false),
     formation,
     message: makeMessage(wave),
   };
 }
 
-for (let wave = 1; wave <= 50; wave++) {
-  if (isBossWave(wave)) continue; // boss waves handled separately
+for (let wave = 1; wave <= 100; wave++) {
+  if (isBossWave(wave)) continue;
   WAVE_CONFIGS.push(makeWaveConfig(wave));
 }
 
-// Hand-tuned early waves
 WAVE_CONFIGS.unshift(
   {
     id: 1,
@@ -118,8 +129,8 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 20,
-    musicTrack: 'music',
+    coinBonus: 4,
+    musicTrack: getMusicTrackForWave(1, null, false),
     formation: null,
     message: {
       title: 'WAVE 1',
@@ -143,8 +154,8 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 25,
-    musicTrack: 'music',
+    coinBonus: 8,
+    musicTrack: getMusicTrackForWave(2, null, false),
     formation: null,
     message: {
       title: 'WAVE 2',
@@ -168,8 +179,8 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 30,
-    musicTrack: 'music',
+    coinBonus: 12,
+    musicTrack: getMusicTrackForWave(3, null, false),
     formation: null,
     message: {
       title: 'WAVE 3',
@@ -193,8 +204,8 @@ WAVE_CONFIGS.unshift(
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 35,
-    musicTrack: 'music',
+    coinBonus: 16,
+    musicTrack: getMusicTrackForWave(4, null, false),
     formation: null,
     message: {
       title: 'WAVE 4',
@@ -205,21 +216,21 @@ WAVE_CONFIGS.unshift(
   },
   {
     id: 5,
-    name: 'Formation Trial',
-    enemyCount: 0,
-    spawnInterval: 999999,
+    name: 'Formation Intro',
+    enemyCount: 16,
+    spawnInterval: 500,
     weights: {
-      drifter: 0,
-      zigzag: 0,
-      shooter: 0,
-      chaser: 0,
+      drifter: 4,
+      zigzag: 2,
+      shooter: 2,
+      chaser: 2,
       bomber: 0,
       dasher: 0,
       splitter: 0,
       tank: 0,
     },
-    coinBonus: 50,
-    musicTrack: 'formationMusic',
+    coinBonus: 30,
+    musicTrack: getMusicTrackForWave(5, 'grid', false),
     formation: 'grid',
     message: {
       title: 'WAVE 5',
@@ -229,17 +240,3 @@ WAVE_CONFIGS.unshift(
     },
   }
 );
-
-// remove duplicate ids caused by unshift + generated entries
-const deduped = [];
-const seen = new Set();
-for (let i = 0; i < WAVE_CONFIGS.length; i++) {
-  const w = WAVE_CONFIGS[i];
-  if (seen.has(w.id)) continue;
-  seen.add(w.id);
-  deduped.push(w);
-}
-WAVE_CONFIGS.length = 0;
-for (let i = 0; i < deduped.length; i++) {
-  WAVE_CONFIGS.push(deduped[i]);
-}

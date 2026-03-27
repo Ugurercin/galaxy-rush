@@ -1,8 +1,4 @@
-// Retro space shooter background music
-// Dark synthwave / arcade loop with arp + bass + delay
-// Intensity rises every 10 waves: 10 / 20 / 30 / 40 / 50+
-
-const MusicTrack = {
+const MusicTrackDark = {
   _playing: false,
   _ctx: null,
   _bus: null,
@@ -21,10 +17,9 @@ const MusicTrack = {
   maxTier: 8,
 
   tempo: 148,
-  swing: 0.08, // 0 to 0.15 feels nice
+  swing: 0.08,
   masterGain: 3,
 
-  // C minor vibe
   arpPattern: [
     130.81, 155.56, 174.61, 207.65,
     174.61, 233.08, 207.65, 155.56,
@@ -81,8 +76,6 @@ const MusicTrack = {
 
   setWave(wave) {
     this.currentWave = Math.max(1, wave | 0);
-
-    // 1-9 => 0, 10-19 => 1, 20-29 => 2, 30-39 => 3...
     this.intensityTier = Math.min(this.maxTier, Math.floor(this.currentWave / 10));
     this.tempo = this.baseTempo + this.intensityTier * 6;
 
@@ -91,25 +84,13 @@ const MusicTrack = {
     const now = this._ctx.currentTime;
 
     this._lowpass.frequency.cancelScheduledValues(now);
-    this._lowpass.frequency.setTargetAtTime(
-      1800 + this.intensityTier * 220,
-      now,
-      0.2
-    );
+    this._lowpass.frequency.setTargetAtTime(1800 + this.intensityTier * 220, now, 0.2);
 
     this._feedback.gain.cancelScheduledValues(now);
-    this._feedback.gain.setTargetAtTime(
-      Math.min(0.5, 0.28 + this.intensityTier * 0.025),
-      now,
-      0.2
-    );
+    this._feedback.gain.setTargetAtTime(Math.min(0.5, 0.28 + this.intensityTier * 0.025), now, 0.2);
 
     this._master.gain.cancelScheduledValues(now);
-    this._master.gain.setTargetAtTime(
-      this.masterGain + this.intensityTier * 0.12,
-      now,
-      0.2
-    );
+    this._master.gain.setTargetAtTime(this.masterGain + this.intensityTier * 0.12, now, 0.2);
   },
 
   _buildFxChain() {
@@ -129,11 +110,9 @@ const MusicTrack = {
     this._feedback = ctx.createGain();
     this._feedback.gain.value = 0.28;
 
-    // dry
     this._lowpass.connect(this._master);
     this._master.connect(this._bus);
 
-    // delay loop
     this._lowpass.connect(this._delay);
     this._delay.connect(this._feedback);
     this._feedback.connect(this._delay);
@@ -145,15 +124,13 @@ const MusicTrack = {
 
     const ctx = this._ctx;
     const scheduleAheadTime = 0.12;
-    const stepDur = 60 / this.tempo / 2; // eighth-note grid
+    const stepDur = 60 / this.tempo / 2;
 
     while (this._nextNoteTime < ctx.currentTime + scheduleAheadTime) {
       this._scheduleStep(this._step, this._nextNoteTime);
 
       let swingOffset = 0;
-      if (this._step % 2 === 1) {
-        swingOffset = stepDur * this.swing;
-      }
+      if (this._step % 2 === 1) swingOffset = stepDur * this.swing;
 
       this._nextNoteTime += stepDur + swingOffset;
       this._step++;
@@ -167,32 +144,13 @@ const MusicTrack = {
     const bassFreq = this.bassPattern[step % this.bassPattern.length];
     const tier = this.intensityTier;
 
-    // Arp every step
     this._playArp(arpFreq, time);
 
-    // Bass every 4 steps
-    if (step % 4 === 0) {
-      this._playBass(bassFreq, time);
-    }
-
-    // Base offbeat hats
-    if (step % 2 === 1) {
-      this._playHat(time, 1);
-    }
-
-    // Extra hats as tension rises
-    if (tier >= 2 && step % 4 === 0) {
-      this._playHat(time, 0.7);
-    }
-
-    if (tier >= 4 && step % 8 === 6) {
-      this._playHat(time, 0.55);
-    }
-
-    // Tension pulse for 30+
-    if (tier >= 3 && step % 8 === 0) {
-      this._playPulse(time);
-    }
+    if (step % 4 === 0) this._playBass(bassFreq, time);
+    if (step % 2 === 1) this._playHat(time, 1);
+    if (tier >= 2 && step % 4 === 0) this._playHat(time, 0.7);
+    if (tier >= 4 && step % 8 === 6) this._playHat(time, 0.55);
+    if (tier >= 3 && step % 8 === 0) this._playPulse(time);
   },
 
   _playArp(freq, time) {
@@ -263,7 +221,6 @@ const MusicTrack = {
 
   _playHat(time, amp = 1) {
     const ctx = this._ctx;
-
     const bufferSize = Math.floor(ctx.sampleRate * 0.025);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);

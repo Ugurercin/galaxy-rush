@@ -1,81 +1,25 @@
 // BossWave.js
 
 class BossWave extends WaveBase {
-  constructor(scene, waveNumber) {
+  constructor(scene, waveNumber, createBossFn) {
     super(scene);
 
     this.waveNumber = waveNumber;
+    this.createBossFn = createBossFn;
+
     this.enemyCount = 0;
     this.spawnInterval = 999999;
-    this.weights = {};
-
     this.boss = null;
-    this.elapsed = 0;
-    this.addTimer = 0;
-    this.addSpawnInterval = Math.max(2400, 4200 - waveNumber * 20);
 
-    this._coinBonus = 28 + waveNumber;
-  }
+    this._coinBonus = 80 + waveNumber * 2;
+    this._musicTrack = 'bossMusic';
 
-  onStart() {
-    this.scene.showMessage(
-      `BOSS WAVE ${this.waveNumber}`,
-      'Heavy hostile incoming!',
-      0xff3355,
-      1800,
-      null
-    );
-
-    soundManager.switchMusic('bossMusic');
-
-    this.boss = new BossEnemy(this.scene, this.waveNumber);
-    this.scene.enemies.push(this.boss);
-  }
-
-  update(delta) {
-    if (this.done) return;
-
-    this.elapsed += delta;
-    this.addTimer += delta;
-
-    if (this.addTimer >= this.addSpawnInterval) {
-      this.addTimer = 0;
-      this.spawnEscortPack();
-    }
-
-    const bossAlive = this.scene.enemies.some(e => e.type === 'boss' && e.alive);
-    const othersAlive = this.scene.enemies.length > 0 || this.scene.formation.isActive();
-
-    if (!bossAlive && !othersAlive) {
-      this.done = true;
-    }
-  }
-
-  spawnEscortPack() {
-    const wave = this.waveNumber;
-
-    const pack = [];
-
-    if (wave < 20) {
-      pack.push(new Drifter(this.scene, wave));
-      pack.push(new ZigZag(this.scene, wave));
-    } else if (wave < 30) {
-      pack.push(new Chaser(this.scene, wave));
-      pack.push(new Shooter(this.scene, wave));
-    } else if (wave < 40) {
-      pack.push(new Bomber(this.scene, wave));
-      pack.push(new Dasher(this.scene, wave));
-    } else {
-      pack.push(new Splitter(this.scene, wave));
-      pack.push(new Tank(this.scene, wave));
-    }
-
-    for (let i = 0; i < pack.length; i++) {
-      const e = pack[i];
-      e.y = -20 - i * 24;
-      e.x = Phaser.Math.Between(e.size + 20, this.scene.scale.width - e.size - 20);
-      this.scene.enemies.push(e);
-    }
+    this.message = {
+      title: `WAVE ${waveNumber}`,
+      subtitle: 'WARNING: BOSS INCOMING',
+      color: 0xff3355,
+      duration: 1600,
+    };
   }
 
   get coinBonus() {
@@ -83,6 +27,29 @@ class BossWave extends WaveBase {
   }
 
   get musicTrack() {
-    return 'bossMusic';
+    return this._musicTrack;
+  }
+
+  onStart() {
+    if (this.message) {
+      this.scene.showMessage(
+        this.message.title,
+        this.message.subtitle,
+        this.message.color,
+        this.message.duration || 1500,
+        null
+      );
+    }
+
+    this.boss = this.createBossFn();
+    this.scene.enemies.push(this.boss);
+  }
+
+  update(delta) {
+    if (this.done) return;
+
+    if (this.boss && !this.boss.alive) {
+      this.done = true;
+    }
   }
 }

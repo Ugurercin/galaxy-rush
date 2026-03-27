@@ -17,23 +17,23 @@ class BootScene extends Phaser.Scene {
     this.load.on('progress', (v) => { bar.width = 200 * v; });
   }
 
- create() {
-  // ── SFX ───────────────────────────────────────────────
-  soundManager.register('shoot',        ShootSound);
-  soundManager.register('shootLaser',   LaserShootSound);
-  soundManager.register('shootRocket',  RocketShootSound);
-  soundManager.register('hit',          HitSound);
-  soundManager.register('explosion',    ExplosionSound);
-  soundManager.register('playerHit',    PlayerHitSound);
-  soundManager.register('uiClick',      UIClickSound);
-  soundManager.register('coinCollect',  CoinCollectSound);
-  
+create() {
+  window.soundManager.register('shoot', ShootSound);
+  window.soundManager.register('shootLaser', LaserShootSound);
+  window.soundManager.register('shootRocket', RocketShootSound);
+  window.soundManager.register('hit', HitSound);
+  window.soundManager.register('explosion', ExplosionSound);
+  window.soundManager.register('playerHit', PlayerHitSound);
+  window.soundManager.register('uiClick', UIClickSound);
+  window.soundManager.register('coinCollect', CoinCollectSound);
 
-  // ── Music tracks ──────────────────────────────────────
-  soundManager.register('music',          MusicTrack);
-  soundManager.register('formationMusic', FormationMusic);
-  soundManager.register('bossMusic',      BossMusic);
-  soundManager.register('menuMusic', MenuMusic);
+  window.soundManager.register('music_dark', MusicTrackDark);
+  window.soundManager.register('music_upbeat', MusicTrackUpbeat);
+  window.soundManager.register('music_bouncy', MusicTrackBouncy);
+  window.soundManager.register('music', MusicTrackDark);
+  window.soundManager.register('formationMusic', FormationMusic);
+  window.soundManager.register('bossMusic', BossMusic);
+  window.soundManager.register('menuMusic', MenuMusic);
 
   const loadingEl = document.getElementById('loading');
   if (loadingEl) loadingEl.style.display = 'none';

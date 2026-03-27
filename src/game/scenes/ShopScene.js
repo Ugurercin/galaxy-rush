@@ -16,7 +16,6 @@ class ShopScene extends Phaser.Scene {
     this.activeModeKey     = data.activeModeKey || 'single';
     this.activeTab         = data.activeTab || 0;
 
-    // Phoenix persistence
     this.hasPhoenixModule   = data.hasPhoenixModule || false;
     this.phoenixBoughtCount = data.phoenixBoughtCount || 0;
   }
@@ -24,7 +23,6 @@ class ShopScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    // ── Layout constants ───────────────────────────────────
     this.PAD = 18;
     this.GAP = 10;
 
@@ -46,7 +44,6 @@ class ShopScene extends Phaser.Scene {
         ? (width - this.PAD * 2 - this.cardGap) / 2
         : (width - this.PAD * 2);
 
-    // Keep shop definitions available globally in this scene
     this.shopItems = [
       { type: 'rapidfire',  label: 'Rapid Fire',     desc: 'Fire rate ×2.5 for 8s',                cost: 40,  color: 0x00e5ff },
       { type: 'spreadshot', label: 'Spread Shot',    desc: '3-way bullets for 10s',                cost: 50,  color: 0xe040fb },
@@ -57,10 +54,8 @@ class ShopScene extends Phaser.Scene {
       { type: 'phoenix',    label: 'Phoenix Module', desc: 'Revive once with 1 HP on lethal hit', cost: 120, color: 0xff9e2c },
     ];
 
-    // ── Background ─────────────────────────────────────────
     this.add.rectangle(0, 0, width, height, 0x060a12).setOrigin(0);
 
-    // ── Header ─────────────────────────────────────────────
     this.add.text(width / 2, 22, 'Shop', {
       fontSize: '26px',
       fontFamily: 'Arial, sans-serif',
@@ -80,11 +75,9 @@ class ShopScene extends Phaser.Scene {
       .lineStyle(1, 0x00e5ff, 0.12)
       .lineBetween(this.PAD, 100, width - this.PAD, 100);
 
-    // ── Tab bar ────────────────────────────────────────────
     this.tabLabels = ['Upgrades', 'Modes', 'Powerups'];
     this._buildTabBar(width, 108);
 
-    // ── Scrollable content viewport ────────────────────────
     this.contentMaskShape = this.make.graphics({ x: 0, y: 0, add: false });
     this.contentMaskShape.fillStyle(0xffffff, 1);
     this.contentMaskShape.fillRect(this.PAD, this.contentTop, width - this.PAD * 2, this.contentHeight);
@@ -108,8 +101,24 @@ class ShopScene extends Phaser.Scene {
       this.contentContainer.y = this.contentScrollY;
     });
 
-    // ── Bottom ─────────────────────────────────────────────
     this._buildBottom(width, height);
+  }
+
+  // ── HP formatting ───────────────────────────────────────
+  getCompactHPLabel() {
+    return this.maxHP <= 5
+      ? `♥ ${this.playerHP} / ${this.maxHP}`
+      : `♥ x${this.playerHP} / ${this.maxHP}`;
+  }
+
+  getHealthUpgradeDesc() {
+    const cost = this.getMaxHPCost();
+    if (this.maxHP >= 100) return 'Maxed out';
+
+    const compactNow  = this.maxHP <= 5 ? `${this.maxHP} HP` : `x${this.maxHP} HP`;
+    const compactNext = (this.maxHP + 1) <= 5 ? `${this.maxHP + 1} HP` : `x${this.maxHP + 1} HP`;
+
+    return `${compactNow} → ${compactNext}  ·  ${cost} ¢`;
   }
 
   // ── Stats row ───────────────────────────────────────────
@@ -123,7 +132,7 @@ class ShopScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    this.add.text(third * 1.5, y, `♥ ${this.playerHP} / ${this.maxHP}`, {
+    this.add.text(third * 1.5, y, this.getCompactHPLabel(), {
       fontSize: '14px',
       fontFamily: 'Arial, sans-serif',
       color: '#ff5577',
@@ -178,7 +187,6 @@ class ShopScene extends Phaser.Scene {
     });
   }
 
-  // ── Tab switch ──────────────────────────────────────────
   _showTab(index) {
     this.activeTab = index;
     this._updateTabBar();
@@ -217,7 +225,7 @@ class ShopScene extends Phaser.Scene {
     this._permCard(
       this.PAD, y, this.cardW, this.CARD_H,
       'Restore HP',
-      `${this.playerHP} / ${this.maxHP} hearts  ·  50 ¢`,
+      `${this.playerHP}/${this.maxHP} HP  ·  50 ¢`,
       0xff5577,
       this.coins >= 50 && this.playerHP < this.maxHP,
       () => this.buyRestoreHP()
@@ -227,11 +235,9 @@ class ShopScene extends Phaser.Scene {
       this._permCard(
         this.PAD + this.cardW + this.cardGap, y, this.cardW, this.CARD_H,
         'Max HP Up',
-        this.maxHP >= 6
-          ? 'Maxed out'
-          : `${this.maxHP} → ${this.maxHP + 1}  ·  ${this.getMaxHPCost()} ¢`,
+        this.getHealthUpgradeDesc(),
         0xff8899,
-        this.coins >= this.getMaxHPCost() && this.maxHP < 6,
+        this.coins >= this.getMaxHPCost() && this.maxHP < 100,
         () => this.buyMaxHP()
       );
       y += this.CARD_H + 18;
@@ -240,11 +246,9 @@ class ShopScene extends Phaser.Scene {
       this._permCard(
         this.PAD, y, this.cardW, this.CARD_H,
         'Max HP Up',
-        this.maxHP >= 6
-          ? 'Maxed out'
-          : `${this.maxHP} → ${this.maxHP + 1}  ·  ${this.getMaxHPCost()} ¢`,
+        this.getHealthUpgradeDesc(),
         0xff8899,
-        this.coins >= this.getMaxHPCost() && this.maxHP < 6,
+        this.coins >= this.getMaxHPCost() && this.maxHP < 100,
         () => this.buyMaxHP()
       );
       y += this.CARD_H + 18;
@@ -281,12 +285,12 @@ class ShopScene extends Phaser.Scene {
     let y = startY;
 
     this.firingModeItems = [
-  { key: 'double', label: 'Double Shot',    desc: 'Two parallel bullets from wing tips', cost: 150, color: 0x69ff47, icon: '⋈' },
-  { key: 'triple', label: 'Triple Shot',    desc: 'Three straight bullets in a wide line', cost: 230, color: 0x00b0ff, icon: '≡' },
-  { key: 'quad',   label: 'Quadruple Shot', desc: 'Four straight bullets across the ship front', cost: 320, color: 0xffd54f, icon: '⁞' },
-  { key: 'laser',  label: 'Laser Beam',     desc: 'Continuous beam, tick damage', cost: 220, color: 0xff2244, icon: '|' },
-  { key: 'rocket', label: 'Rocket',         desc: 'Slow projectile, area explosion', cost: 280, color: 0xff9900, icon: '◈' },
-];
+      { key: 'double', label: 'Double Shot',    desc: 'Two parallel bullets from wing tips', cost: 150, color: 0x69ff47, icon: '⋈' },
+      { key: 'triple', label: 'Triple Shot',    desc: 'Three straight bullets in a wide line', cost: 230, color: 0x00b0ff, icon: '≡' },
+      { key: 'quad',   label: 'Quadruple Shot', desc: 'Four straight bullets across the ship front', cost: 320, color: 0xffd54f, icon: '⁞' },
+      { key: 'laser',  label: 'Laser Beam',     desc: 'Continuous beam, tick damage', cost: 220, color: 0xff2244, icon: '|' },
+      { key: 'rocket', label: 'Rocket',         desc: 'Slow projectile, area explosion', cost: 280, color: 0xff9900, icon: '◈' },
+    ];
 
     const modeDef = this.firingModeItems.find(m => m.key === this.activeModeKey);
     const modeLabel = this.activeModeKey === 'single' ? 'Single Shot' : modeDef?.label || 'Single Shot';
@@ -508,7 +512,6 @@ class ShopScene extends Phaser.Scene {
     }).setAlpha(alpha);
   }
 
-  // ── Bottom: loadout + ready ─────────────────────────────
   _buildBottom(width, height) {
     const panelY = height - this.BOTTOM_H;
 
@@ -612,7 +615,13 @@ class ShopScene extends Phaser.Scene {
 
   // ── Costs ───────────────────────────────────────────────
   getMaxHPCost() {
-    return ({ 3: 80, 4: 130, 5: 200 })[this.maxHP] || 999;
+    if (this.maxHP >= 100) return 0;
+
+    if (this.maxHP <= 5) {
+      return ({ 3: 80, 4: 130, 5: 200 })[this.maxHP] || 240;
+    }
+
+    return Math.floor(200 + (this.maxHP - 5) * 45);
   }
 
   getFireRateCost() {
@@ -630,7 +639,8 @@ class ShopScene extends Phaser.Scene {
 
   buyMaxHP() {
     const cost = this.getMaxHPCost();
-    if (this.coins < cost || this.maxHP >= 6) return;
+    if (this.coins < cost || this.maxHP >= 100) return;
+
     soundManager.play('uiClick');
     this.coins -= cost;
     this.maxHP++;
@@ -706,21 +716,21 @@ class ShopScene extends Phaser.Scene {
   }
 
   startNextWave() {
-  soundManager.play('uiClick');
-  this.scene.start('GameScene', {
-    wave: this.wave,
-    score: this.score,
-    coins: this.coins,
-    playerHP: this.playerHP,
-    maxHP: this.maxHP,
-    inventory: this.inventory,
-    fireRateLevel: this.fireRateLevel,
-    unlockedModes: this.unlockedModes,
-    activeModeKey: this.activeModeKey,
-    hasPhoenixModule: this.hasPhoenixModule,
-    phoenixBoughtCount: this.phoenixBoughtCount,
-  });
-}
+    soundManager.play('uiClick');
+    this.scene.start('GameScene', {
+      wave: this.wave,
+      score: this.score,
+      coins: this.coins,
+      playerHP: this.playerHP,
+      maxHP: this.maxHP,
+      inventory: this.inventory,
+      fireRateLevel: this.fireRateLevel,
+      unlockedModes: this.unlockedModes,
+      activeModeKey: this.activeModeKey,
+      hasPhoenixModule: this.hasPhoenixModule,
+      phoenixBoughtCount: this.phoenixBoughtCount,
+    });
+  }
 
   _toast(msg) {
     const { width, height } = this.scale;

@@ -47,10 +47,12 @@
     });
 
     // Sequential script loader — waits for each script before loading next
-   var scripts = [
+var scripts = [
   'vendor/phaser.min.js',
   'sounds/SoundManager.js',
-  'sounds/MusicTrack.js',
+  'sounds/MusicTrackDark.js',
+  'sounds/MusicTrackBouncy.js',
+  'sounds/MusicTrackUpbeat.js',
   'sounds/FormationMusic.js',
   'sounds/BossMusic.js',
   'sounds/LaserShootSound.js',
@@ -62,6 +64,7 @@
   'sounds/PlayerHitSound.js',
   'sounds/UIClickSound.js',
   'sounds/CoinCollectSound.js',
+
   'powerups/RapidFire.js',
   'powerups/SpreadShot.js',
   'powerups/Shield.js',
@@ -69,7 +72,9 @@
   'powerups/ScreenBomb.js',
   'powerups/CoinMagnet.js',
   'powerups/GhostMode.js',
+
   'scenes/FormationManager.js',
+
   'enemies/renderers/DrifterRenderer.js',
   'enemies/renderers/ShooterRenderer.js',
   'enemies/renderers/ChaserRenderer.js',
@@ -78,7 +83,11 @@
   'enemies/renderers/BomberRenderer.js',
   'enemies/renderers/DasherRenderer.js',
   'enemies/renderers/TankRenderer.js',
+  'enemies/renderers/OrbiterRenderer.js',
+  'enemies/renderers/SniperRenderer.js',
+
   'ship/PlayerShipRenderer.js',
+
   'ship/firing/FiringBase.js',
   'ship/firing/SingleShot.js',
   'ship/firing/DoubleShot.js',
@@ -86,10 +95,12 @@
   'ship/firing/QuadrupleShot.js',
   'ship/firing/LaserBeam.js',
   'ship/firing/Rocket.js',
+
   'renderers/BackgroundRenderer.js',
   'renderers/BulletRenderer.js',
   'renderers/CoinRenderer.js',
   'renderers/ParticleRenderer.js',
+
   'enemies/EnemyBase.js',
   'enemies/Drifter.js',
   'enemies/Shooter.js',
@@ -99,14 +110,21 @@
   'enemies/Bomber.js',
   'enemies/Dasher.js',
   'enemies/Tank.js',
+  'enemies/Orbiter.js',
+  'enemies/Sniper.js',
 
-'waves/WaveBase.js',
-'waves/waves.config.js',
-'waves/ConfigWave.js',
-'enemies/BossEnemy.js',
-'waves/BossWave.js',
-'waves/waveFactory.js',
+  'waves/WaveBase.js',
+  'waves/waves.config.js',
+  'waves/ConfigWave.js',
 
+  'enemies/BossEnemy.js',
+  'enemies/CarrierBoss.js',
+  'enemies/LaserBoss.js',
+  'enemies/CrusherBoss.js',
+  'enemies/HiveBoss.js',
+
+  'waves/BossWave.js',
+  'waves/waveFactory.js',
 
   'scenes/BootScene.js',
   'scenes/MenuScene.js',
